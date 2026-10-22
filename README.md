@@ -31,8 +31,8 @@ adding agents, it treats agent execution as a classical scheduling problem with 
 | Phase | Scope | Status |
 |---|---|---|
 | 0 | Project scaffold, configuration, CI, design docs | ✅ done |
-| 1 | Core algorithms: DAG model, validation, critical path, list scheduler, task fusion | ⏳ next |
-| 2 | Cost model, mock LLM, simulator, Monte Carlo strategy selector | planned |
+| 1 | Core algorithms: DAG model, validation, critical path, list scheduler, task fusion | ✅ done |
+| 2 | Cost model, mock LLM, simulator, Monte Carlo strategy selector | ⏳ next |
 | 3 | LangGraph planner / executor / synthesizer, Anthropic backend, reliability | planned |
 | 4 | Benchmark suite and experiment harness (simulation) | planned |
 | 5 | Real-LLM experiments, analysis, report | planned |
@@ -110,11 +110,32 @@ pre-commit install                      # optional git hooks
 ## Repository layout
 
 ```
-src/adaptive_scheduler/   library code (config, CLI; more modules land per phase)
-tests/                    unit, property-based and integration tests
-docs/                     architecture and research report
-.github/workflows/        CI
+src/adaptive_scheduler/
+  graph/        Task / TaskGraph model, Kahn's sort, cycle detection, transitive reduction,
+                critical path, upward rank, slack, graph profile and bounds
+  scheduling/   ReadyQueue (shared by simulator and executor), list / sequential /
+                level-parallel schedulers, schedule validator, chain-fusion DP
+  config.py     settings and LLM provider resolution (auto | mock | anthropic)
+  cli.py        `apsched` command
+tests/
+  unit/         hand-checked examples
+  property/     Hypothesis invariants over thousands of random DAGs
+docs/           architecture and research report
 ```
+
+### What the tests guarantee
+
+Property-based tests (300 random DAGs per property, up to 24 tasks) check that for every graph,
+duration vector, worker count `k` and priority policy:
+
+- every schedule is valid: each task runs once, after all of its dependencies, never more than `k`
+  at a time (checked by an independent validator);
+- `max(S, W/k) <= makespan <= W/k + (1 - 1/k)·S` — the theoretical lower bound and Graham's
+  list-scheduling bound;
+- with `k >= n` workers the list scheduler achieves the critical path exactly;
+- the chain-fusion DP equals brute-force enumeration of all segmentations, and fusion never
+  increases total work or the critical path;
+- the transitive reduction preserves reachability and is minimal.
 
 ## References
 

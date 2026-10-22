@@ -69,10 +69,17 @@ J = E[latency] + α · P95(latency) + λ · cost      subject to   P(success) �
 When `W / S ≈ 1` (an essentially sequential graph) the selector picks sequential execution and
 avoids paying coordination overhead — the regime where blind multi-agent fan-out is known to hurt.
 
-### 3.6 Task fusion *(planned)*
+### 3.6 Task fusion
 Merges a chain `a → b` (or small sibling groups) into a single LLM call when the saved per-call
-overhead exceeds the lost overlap. On chains this is solved exactly by dynamic programming over
-split points; on general DAGs a greedy merge guarded by the critical path is used.
+overhead exceeds the lost overlap. Only chain edges `u -> v` with `out(u) = 1` and `in(v) = 1` are fused:
+contracting them cannot remove parallelism or create a cycle. Each maximal chain is segmented
+optimally by dynamic programming in `O(n · L_max)`, minimizing
+`o + Σ max(d_i − o, 0) + μ·(L − 1)²` per fused segment (fixed overhead `o`, convex quality
+penalty `μ`) subject to per-call task and work limits. Fusion provably never increases total work
+`W` or span `S`. A greedy list schedule's makespan is still not monotone in task durations
+(Graham's timing anomalies), so the strategy selector simulates fused and unfused variants
+rather than assuming fusion always helps. Sibling fusion (which trades away parallelism) is left
+to future work.
 
 ### 3.7 Scheduler
 Event-driven **list scheduling**: a ready-queue (binary heap) ordered by upward rank, dispatching
