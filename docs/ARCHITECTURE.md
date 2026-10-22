@@ -45,10 +45,18 @@ A request is decomposed into a DAG `G = (V, E)`. Each task `v` has a type (e.g. 
   fan-in statistics).
 * Hard limits on node count, depth and fan-out (guardrail against runaway plans).
 
-### 3.3 Cost estimator
-Per-task latency is modelled as `TTFT + output_tokens / throughput` with a log-normal noise term,
-using priors by task type that are refined online from run history (EWMA of means, streaming
-quantiles for tails). Token cost uses provider pricing.
+### 3.3 Cost model and estimator
+Call latency is `(ttft + n_in/prefill + n_out/decode) · noise · tail · (1 + β·(active − 1))`:
+log-normal noise with mean 1, a heavy tail (probability `p`, multiplier `m`), and contention `β`
+from concurrent calls. The provider serves at most `C` calls at once; excess calls wait and pay a
+rate-limit penalty (HTTP 429 + back-off). A task's prompt includes the system prompt, shared
+context, its instruction and **the outputs of its dependencies**, so fan-in tasks are expensive.
+
+The `CostEstimator` calibrates this online: EWMA of output tokens and success rate per task type
+(seeded with priors), and a decayed **weighted** least-squares fit of `ttft` and decode speed.
+Weights are `1 / expected_latency²` because latency noise is multiplicative; ordinary least
+squares let long, noisy generations dominate the intercept (a test caught this: OLS estimated
+1.39 s for a true 1.2 s overhead).
 
 ### 3.4 Graph analyzer
 * **Critical path** — longest path under expected latency via DP over the topological order.
@@ -57,7 +65,10 @@ quantiles for tails). Token cost uses provider pricing.
 * **Lower bound on makespan** with `k` workers: `max(S, W / k)`.
 
 ### 3.5 Strategy selector
-Evaluates candidate execution strategies — sequential, static level-parallel, adaptive list
+Implemented in `simulation/selector.py` on top of a stochastic discrete-event engine
+(`simulation/engine.py`) that models two nested concurrency limits - client slots `k` (held across
+retries, like a semaphore-guarded worker) and the provider cap `C` - plus retries with jittered
+exponential back-off and failure isolation. It evaluates candidate execution strategies — sequential, static level-parallel, adaptive list
 scheduling at several concurrency levels `k`, with or without task fusion — by **Monte Carlo
 simulation** over the estimated latency distributions. This predicts both mean and **P95**
 latency, plus cost and call count, for each candidate. The selector minimizes
@@ -65,6 +76,12 @@ latency, plus cost and call count, for each candidate. The selector minimizes
 ```
 J = E[latency] + α · P95(latency) + λ · cost      subject to   P(success) ≥ τ
 ```
+
+All candidates share random seeds (common random numbers) to reduce the variance of their
+differences. Candidates within a 1 % *parsimony* margin of the best are tie-broken towards the
+simplest architecture (fewest workers, then fewest calls), and candidates whose predicted success
+rate is more than 1 % below the best are excluded - which is how the selector declines task fusion
+when packing steps into one call would make failures (and whole-call retries) too likely.
 
 When `W / S ≈ 1` (an essentially sequential graph) the selector picks sequential execution and
 avoids paying coordination overhead — the regime where blind multi-agent fan-out is known to hurt.
@@ -97,9 +114,11 @@ resumability.
 ### 3.9 LLM backends
 A single interface with two implementations:
 
-* **Mock LLM** — deterministic given a seed; simulates realistic latency (TTFT + throughput,
-  heavy-tailed noise), token usage and controllable failure rates. Used for tests, CI and
-  large-scale experiments; requires no key.
+* **Mock LLM** (`MockChatModel`) — a LangChain chat model driven by the same `ProviderProfile`
+  as the simulator: sampled latency with contention, a provider concurrency cap with rate-limit
+  penalty, `usage_metadata` token counts, and injectable transient failures. Each call's random
+  stream derives from `(seed, prompt, n-th call with that prompt)`, so results do not depend on
+  the order in which concurrent calls are scheduled. Requires no key.
 * **Anthropic** — real calls via `langchain-anthropic` when `ANTHROPIC_API_KEY` is present.
 
 Selection is automatic (`APSCHED_LLM_PROVIDER=auto`) or explicit (`mock` / `anthropic`).

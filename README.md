@@ -32,8 +32,8 @@ adding agents, it treats agent execution as a classical scheduling problem with 
 |---|---|---|
 | 0 | Project scaffold, configuration, CI, design docs | ✅ done |
 | 1 | Core algorithms: DAG model, validation, critical path, list scheduler, task fusion | ✅ done |
-| 2 | Cost model, mock LLM, simulator, Monte Carlo strategy selector | ⏳ next |
-| 3 | LangGraph planner / executor / synthesizer, Anthropic backend, reliability | planned |
+| 2 | Cost model, mock LLM, simulator, Monte Carlo strategy selector | ✅ done |
+| 3 | LangGraph planner / executor / synthesizer, Anthropic backend, reliability | ⏳ next |
 | 4 | Benchmark suite and experiment harness (simulation) | planned |
 | 5 | Real-LLM experiments, analysis, report | planned |
 | 6 | FastAPI service, observability, Docker, deployment | planned |
@@ -115,6 +115,12 @@ src/adaptive_scheduler/
                 critical path, upward rank, slack, graph profile and bounds
   scheduling/   ReadyQueue (shared by simulator and executor), list / sequential /
                 level-parallel schedulers, schedule validator, chain-fusion DP
+  cost/         provider latency & pricing model, per-task token profiles (information
+                flows along edges), online estimator (weighted least squares + EWMA)
+  simulation/   stochastic discrete-event engine (client slots, provider cap / rate limits,
+                contention, heavy tails, retries, failure isolation) and the Monte Carlo
+                strategy selector
+  llm/          deterministic MockChatModel (LangChain-compatible) and provider factory
   config.py     settings and LLM provider resolution (auto | mock | anthropic)
   cli.py        `apsched` command
 tests/
@@ -135,7 +141,22 @@ duration vector, worker count `k` and priority policy:
 - with `k >= n` workers the list scheduler achieves the critical path exactly;
 - the chain-fusion DP equals brute-force enumeration of all segmentations, and fusion never
   increases total work or the critical path;
-- the transitive reduction preserves reachability and is minimal.
+- the transitive reduction preserves reachability and is minimal;
+- with randomness switched off, the stochastic engine reproduces the deterministic list and
+  level-parallel schedulers exactly, and every task is accounted for (completed / failed /
+  cancelled) under random failures and rate limits.
+
+### Early simulation check (default provider model, 200 samples per strategy)
+
+| Plan shape | W / S | Sequential | Static parallel | Eager parallel | Adaptive (chosen config) |
+|---|---|---|---|---|---|
+| chain of 8 | 1.00 | 54.6 s | 54.6 s | 54.6 s | **54.6 s** (k = 1) |
+| fan-out 16 → merge | 7.75 | 115.6 s | 33.5 s | 33.5 s | **32.4 s** (k = 8, provider limit) |
+| mixed, 11 tasks | 2.20 | 75.4 s | 44.2 s | 40.0 s | **40.0 s** (k = 6) |
+
+The selector matches the best fixed strategy on each shape without being told the shape. These
+are sanity checks, not the study results; the full experiment suite (Phase 4) sweeps provider
+limits, cost heterogeneity and failure rates, and adds a dependency-blind multi-agent baseline.
 
 ## References
 
