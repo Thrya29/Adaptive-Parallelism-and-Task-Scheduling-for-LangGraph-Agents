@@ -1,0 +1,65 @@
+# Kubernetes deployment. Create the secret first (omit ANTHROPIC_API_KEY to run on the mock LLM):
+#   kubectl create secret generic adaptive-scheduler \
+#     --from-literal=ANTHROPIC_API_KEY=... --from-literal=APSCHED_API_KEY=...
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: adaptive-scheduler
+  labels: {app: adaptive-scheduler}
+spec:
+  replicas: 2
+  selector:
+    matchLabels: {app: adaptive-scheduler}
+  template:
+    metadata:
+      labels: {app: adaptive-scheduler}
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8080"
+        prometheus.io/path: /metrics
+    spec:
+      terminationGracePeriodSeconds: 60
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        seccompProfile: {type: RuntimeDefault}
+      containers:
+        - name: api
+          image: ghcr.io/thrya29/adaptive-scheduler:latest  # replace with your registry/tag
+          ports:
+            - containerPort: 8080
+          env:
+            - {name: APSCHED_LOG_FORMAT, value: json}
+            - {name: APSCHED_MAX_CONCURRENT_RUNS, value: "8"}
+            - {name: APSCHED_RUN_TIMEOUT_S, value: "300"}
+          envFrom:
+            - secretRef: {name: adaptive-scheduler, optional: true}
+          readinessProbe:
+            httpGet: {path: /readyz, port: 8080}
+            periodSeconds: 5
+          livenessProbe:
+            httpGet: {path: /healthz, port: 8080}
+            periodSeconds: 15
+            failureThreshold: 3
+          resources:
+            requests: {cpu: 250m, memory: 256Mi}
+            limits: {cpu: "1", memory: 512Mi}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: {drop: [ALL]}
+          volumeMounts:
+            - {name: tmp, mountPath: /tmp}
+      volumes:
+        - name: tmp
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: adaptive-scheduler
+spec:
+  selector: {app: adaptive-scheduler}
+  ports:
+    - port: 80
+      targetPort: 8080

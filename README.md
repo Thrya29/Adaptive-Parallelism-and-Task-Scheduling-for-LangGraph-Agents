@@ -35,8 +35,8 @@ adding agents, it treats agent execution as a classical scheduling problem with 
 | 2 | Cost model, mock LLM, simulator, Monte Carlo strategy selector | ✅ done |
 | 3 | LangGraph planner / executor / synthesizer, Anthropic backend, reliability | ✅ done |
 | 4 | Benchmark suite, experiments, statistics, figures | ✅ done |
-| 5 | Real-LLM validation, analysis, report | ⏳ next |
-| 6 | FastAPI service, observability, Docker, deployment | planned |
+| 5 | Real-LLM validation, analysis, report | ⏳ next (needs an API key) |
+| 6 | FastAPI service, observability, Docker, deployment | ✅ done |
 
 ## Quickstart
 
@@ -47,7 +47,7 @@ git clone https://github.com/Thrya29/Adaptive-Parallelism-and-Task-Scheduling-fo
 cd Adaptive-Parallelism-and-Task-Scheduling-for-LangGraph-Agents
 python -m venv .venv
 # Windows: .venv\Scripts\activate    macOS/Linux: source .venv/bin/activate
-pip install -e ".[dev,anthropic,experiments]"
+pip install -e ".[dev,anthropic,experiments,api,observability]"
 apsched info
 ```
 
@@ -107,6 +107,19 @@ Metrics: wall-clock 4.42s (plan 0.86s, select 0.13s, execute 3.40s, synthesize 0
 
 The selector ran the three lookups concurrently (k = 3, the plan's width) and fused the final
 chain `s3_1 → final` into one call, saving a model call at no latency cost.
+
+### Run it as a service
+
+```bash
+apsched serve --port 8080                     # or: docker compose up --build  (API + Prometheus)
+curl -X POST localhost:8080/v1/runs -H 'content-type: application/json'   -d '{"request": "Compare PostgreSQL, MySQL and SQLite, then recommend one"}'
+curl -N -X POST localhost:8080/v1/runs/stream -H 'content-type: application/json'   -d '{"request": "Research A, B and C, then compare them"}'   # live Server-Sent Events
+```
+
+JSON and streaming endpoints, health/readiness probes, Prometheus metrics, OpenTelemetry traces
+(one span per task: the trace *is* the schedule), structured JSON logs with request ids, API-key
+auth, admission control and timeouts. Non-root Docker image, docker-compose, Kubernetes manifest
+and Cloud Run instructions: [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
 
 ### Use it as a library
 
@@ -256,6 +269,9 @@ src/adaptive_scheduler/
                 LLM and heuristic planners, async TaskExecutor, prompts
   bench/        workload families, environment conditions, dependency-blind baseline,
                 experiment runner, statistics (bootstrap, Wilcoxon, Holm), report & figures
+  api/          FastAPI service: JSON + SSE endpoints, auth, admission control, timeouts
+  observability/ Prometheus metrics, OpenTelemetry spans, JSON logging (all from run events)
+  events.py     typed run events: the single source for streaming, metrics and traces
   report.py     text rendering of a run (plan, candidate table, Gantt timeline, metrics)
   config.py     settings and LLM provider resolution (auto | mock | anthropic)
   cli.py        `apsched` command
@@ -263,7 +279,9 @@ tests/
   unit/         hand-checked examples
   property/     Hypothesis invariants over thousands of random DAGs
   integration/  end-to-end agent runs on the mock LLM; live Anthropic test (`pytest -m live`)
-docs/           architecture; results/ holds benchmark data, report and figures
+docs/           architecture, deployment guide; results/ holds benchmark data and figures
+deploy/         Prometheus config, Kubernetes manifest
+Dockerfile, docker-compose.yml
 ```
 
 ### What the tests guarantee

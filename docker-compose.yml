@@ -1,0 +1,26 @@
+# Local stack: the API plus Prometheus scraping its /metrics.
+#   docker compose up --build
+#   API:        http://localhost:8080/docs
+#   Prometheus: http://localhost:9090  (try: rate(apsched_runs_total[5m]))
+# Runs on the mock LLM unless ANTHROPIC_API_KEY is set in .env.
+services:
+  api:
+    build: .
+    image: adaptive-scheduler:local
+    ports:
+      - "8080:8080"
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      APSCHED_LOG_FORMAT: json
+    restart: unless-stopped
+
+  prometheus:
+    image: prom/prometheus:v2.53.0
+    volumes:
+      - ./deploy/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    ports:
+      - "9090:9090"
+    depends_on:
+      - api

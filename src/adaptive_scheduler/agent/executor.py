@@ -27,6 +27,7 @@ from pydantic import BaseModel, Field
 
 from adaptive_scheduler.agent import prompts
 from adaptive_scheduler.cost.profiles import TaskProfile, estimate_tokens
+from adaptive_scheduler.events import AgentEvent, EventSink, EventType, emit
 from adaptive_scheduler.scheduling.ready_queue import ReadyQueue
 from adaptive_scheduler.simulation.engine import ExecutionConfig, Mode, PreparedPlan, RetryPolicy
 
@@ -113,7 +114,13 @@ class TaskExecutor:
         self._call_kwargs = call_kwargs or (lambda _profile: {})
 
     async def run(
-        self, request: str, plan: PreparedPlan, config: ExecutionConfig
+        self,
+        request: str,
+        plan: PreparedPlan,
+        config: ExecutionConfig,
+        *,
+        on_event: EventSink | None = None,
+        run_id: str = "",
     ) -> ExecutionReport:
         graph = plan.graph
         queue = ReadyQueue(graph, plan.priority)
@@ -135,7 +142,9 @@ class TaskExecutor:
                         break
                     tid = queue.pop()
                     inputs = {d: outputs[d] for d in graph.dependency_map[tid]}
-                    coro = self._run_task(request, plan, tid, inputs, t0)
+                    coro = self._run_task(
+                        request, plan, tid, inputs, t0, on_event=on_event, run_id=run_id
+                    )
                     running[asyncio.create_task(coro, name=f"task:{tid}")] = tid
                 if not running:
                     break
@@ -156,6 +165,7 @@ class TaskExecutor:
                                 error=f"upstream task {tid!r} failed",
                             )
                             finished.append(dep)
+                            await emit(on_event, _finished_event(run_id, records[dep], graph))
                     for t in finished:
                         level_done[graph.levels[t]] += 1
                     while level_done[current_level] == level_size.get(current_level, -1):
@@ -181,6 +191,9 @@ class TaskExecutor:
         tid: str,
         inputs: Mapping[str, str],
         t0: float,
+        *,
+        on_event: EventSink | None = None,
+        run_id: str = "",
     ) -> TaskRecord:
         task = plan.graph.task(tid)
         messages = [
@@ -191,6 +204,14 @@ class TaskExecutor:
         ]
         kwargs = self._call_kwargs(plan.profiles[tid])
         record = TaskRecord(task_id=tid, status=TaskStatus.FAILED, start_s=time.perf_counter() - t0)
+        await emit(
+            on_event,
+            AgentEvent(
+                type=EventType.TASK_STARTED,
+                run_id=run_id,
+                data={"task_id": tid, "task_type": task.task_type.value, "inputs": list(inputs)},
+            ),
+        )
 
         for attempt in range(self._retry.max_retries + 1):
             record.attempts += 1
@@ -220,4 +241,22 @@ class TaskExecutor:
             break
 
         record.end_s = time.perf_counter() - t0
+        await emit(on_event, _finished_event(run_id, record, plan.graph))
         return record
+
+
+def _finished_event(run_id: str, record: TaskRecord, graph: Any) -> AgentEvent:
+    return AgentEvent(
+        type=EventType.TASK_FINISHED,
+        run_id=run_id,
+        data={
+            "task_id": record.task_id,
+            "task_type": graph.task(record.task_id).task_type.value,
+            "status": record.status.value,
+            "attempts": record.attempts,
+            "duration_s": record.duration_s,
+            "input_tokens": record.input_tokens,
+            "output_tokens": record.output_tokens,
+            "error": record.error,
+        },
+    )

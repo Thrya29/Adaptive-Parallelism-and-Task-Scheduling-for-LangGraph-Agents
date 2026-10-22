@@ -25,6 +25,7 @@ from typing import Any, Literal, TypedDict
 
 from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import HumanMessage, SystemMessage
+from langchain_core.runnables import RunnableConfig
 from langgraph.checkpoint.base import BaseCheckpointSaver
 from langgraph.graph import END, START, StateGraph
 from pydantic import BaseModel, Field, ValidationError
@@ -45,6 +46,7 @@ from adaptive_scheduler.config import LLMProvider, Settings
 from adaptive_scheduler.cost.estimator import CostEstimator
 from adaptive_scheduler.cost.profiles import ContextSize, build_profiles, estimate_tokens
 from adaptive_scheduler.cost.provider import ProviderProfile
+from adaptive_scheduler.events import AgentEvent, EventSink, EventType, emit
 from adaptive_scheduler.graph.analysis import profile as graph_profile
 from adaptive_scheduler.graph.model import PlanLimitError, TaskGraph, TaskType
 from adaptive_scheduler.llm.factory import create_chat_model
@@ -134,6 +136,7 @@ class RunMetrics(BaseModel):
 
 
 class AgentResult(BaseModel):
+    run_id: str
     request: str
     answer: str
     plan: TaskGraph
@@ -146,6 +149,7 @@ class AgentResult(BaseModel):
 
 
 class AgentState(TypedDict, total=False):
+    run_id: str
     request: str
     strategy: Strategy
     plan_attempts: int
@@ -227,18 +231,67 @@ class AdaptiveAgent:
 
     # ------------------------------------------------------------------ public API
     async def arun(
-        self, request: str, *, strategy: Strategy = Strategy.ADAPTIVE, thread_id: str | None = None
+        self,
+        request: str,
+        *,
+        strategy: Strategy = Strategy.ADAPTIVE,
+        thread_id: str | None = None,
+        run_id: str | None = None,
+        on_event: EventSink | None = None,
     ) -> AgentResult:
+        """Run the pipeline; ``on_event`` receives an :class:`AgentEvent` per lifecycle step."""
         if not request.strip():
             raise ValueError("request must not be empty")
+        run_id = run_id or uuid.uuid4().hex
         started = time.perf_counter()
-        config = {"configurable": {"thread_id": thread_id or uuid.uuid4().hex}}
-        state: AgentState = await self.graph.ainvoke(
-            {"request": request, "strategy": strategy, "plan_attempts": 0, "plan_errors": [],
-             "usage": [], "timings": {}},
-            config,
-        )  # fmt: skip
-        return self._result(state, time.perf_counter() - started)
+        config: RunnableConfig = {
+            "configurable": {"thread_id": thread_id or run_id, "on_event": on_event}
+        }
+        await emit(
+            on_event,
+            AgentEvent(
+                type=EventType.RUN_STARTED,
+                run_id=run_id,
+                data={"request": request, "strategy": strategy.value},
+            ),
+        )
+        try:
+            state: AgentState = await self.graph.ainvoke(
+                {
+                    "run_id": run_id,
+                    "request": request,
+                    "strategy": strategy,
+                    "plan_attempts": 0,
+                    "plan_errors": [],
+                    "usage": [],
+                    "timings": {},
+                },
+                config,
+            )
+        except Exception as exc:
+            await emit(
+                on_event,
+                AgentEvent(
+                    type=EventType.RUN_FAILED,
+                    run_id=run_id,
+                    data={"strategy": strategy.value, "error": f"{type(exc).__name__}: {exc}"},
+                ),
+            )
+            raise
+        result = self._result(state, time.perf_counter() - started)
+        await emit(
+            on_event,
+            AgentEvent(
+                type=EventType.RUN_FINISHED,
+                run_id=run_id,
+                data={
+                    "strategy": strategy.value,
+                    "config": result.decision.config_name,
+                    "metrics": result.metrics.model_dump(),
+                },
+            ),
+        )
+        return result
 
     # ------------------------------------------------------------------ graph construction
     def _build(self, checkpointer: BaseCheckpointSaver[Any] | None) -> Any:
@@ -258,7 +311,7 @@ class AdaptiveAgent:
         return "schedule" if "plan" in state else "plan"
 
     # ------------------------------------------------------------------ nodes
-    async def _plan(self, state: AgentState) -> dict[str, Any]:
+    async def _plan(self, state: AgentState, config: RunnableConfig) -> dict[str, Any]:
         opts = self.options
         attempts = state["plan_attempts"] + 1
         errors = list(state["plan_errors"])
@@ -282,10 +335,14 @@ class AdaptiveAgent:
                 "usage": usage,
             }
             if attempts >= opts.max_plan_attempts:
-                update |= {"plan": _fallback_plan(state["request"]), "plan_fallback": True}
+                fallback = _fallback_plan(state["request"])
+                await self._emit_plan(state, config, fallback, attempts, fallback=True)
+                update |= {"plan": fallback, "plan_fallback": True}
             return update | {"timings": _add(state, "planning", started)}
+        reduced = graph.transitive_reduction()
+        await self._emit_plan(state, config, reduced, attempts, fallback=False)
         return {
-            "plan": graph.transitive_reduction(),
+            "plan": reduced,
             "plan_attempts": attempts,
             "plan_errors": errors,
             "plan_fallback": False,
@@ -293,13 +350,44 @@ class AdaptiveAgent:
             "timings": _add(state, "planning", started),
         }
 
+    async def _emit_plan(
+        self,
+        state: AgentState,
+        config: RunnableConfig,
+        graph: TaskGraph,
+        attempts: int,
+        *,
+        fallback: bool,
+    ) -> None:
+        await emit(
+            _sink(config),
+            AgentEvent(
+                type=EventType.PLAN_READY,
+                run_id=state["run_id"],
+                data={
+                    "attempts": attempts,
+                    "fallback": fallback,
+                    "errors": state["plan_errors"],
+                    "tasks": [
+                        {
+                            "id": t.id,
+                            "task_type": t.task_type.value,
+                            "depends_on": list(t.depends_on),
+                            "instruction": t.instruction,
+                        }
+                        for t in graph.tasks
+                    ],
+                },
+            ),
+        )
+
     def _context(self, request: str) -> ContextSize:
         return ContextSize(
             system_tokens=estimate_tokens(prompts.WORKER_SYSTEM),
             shared_context_tokens=estimate_tokens(prompts.worker_request(request, "", "", "", {})),
         )
 
-    async def _schedule(self, state: AgentState) -> dict[str, Any]:
+    async def _schedule(self, state: AgentState, config: RunnableConfig) -> dict[str, Any]:
         started = time.perf_counter()
         graph, strategy = state["plan"], state["strategy"]
         ctx = self._context(state["request"])
@@ -367,16 +455,30 @@ class AdaptiveAgent:
             )
 
         prepared = prepare(graph, profiles, provider, decision.to_config(), ctx.per_call)
+        await emit(
+            _sink(config),
+            AgentEvent(
+                type=EventType.DECISION,
+                run_id=state["run_id"],
+                data=decision.model_dump(mode="json") | {"groups": prepared.groups},
+            ),
+        )
         return {
             "decision": decision,
             "prepared": prepared,
             "timings": _add(state, "selection", started),
         }
 
-    async def _execute(self, state: AgentState) -> dict[str, Any]:
+    async def _execute(self, state: AgentState, config: RunnableConfig) -> dict[str, Any]:
         started = time.perf_counter()
         plan = state["prepared"]
-        report = await self.executor.run(state["request"], plan, state["decision"].to_config())
+        report = await self.executor.run(
+            state["request"],
+            plan,
+            state["decision"].to_config(),
+            on_event=_sink(config),
+            run_id=state["run_id"],
+        )
         self._learn(plan.graph, report)
         return {"report": report, "timings": _add(state, "execution", started)}
 
@@ -443,6 +545,7 @@ class AdaptiveAgent:
             peak_concurrency=report.peak_concurrency,
         )
         return AgentResult(
+            run_id=state["run_id"],
             request=state["request"],
             answer=state["answer"],
             plan=state["plan"],
@@ -453,6 +556,11 @@ class AdaptiveAgent:
             metrics=metrics,
             plan_errors=state["plan_errors"],
         )
+
+
+def _sink(config: RunnableConfig) -> EventSink | None:
+    sink: EventSink | None = config.get("configurable", {}).get("on_event")
+    return sink
 
 
 def _add(state: AgentState, key: str, started: float) -> dict[str, float]:

@@ -176,7 +176,18 @@ Implemented in `adaptive_scheduler/bench` and run with `apsched bench`.
 * **Statistics** - paired-bootstrap CIs for speedups, Wilcoxon signed-rank tests on paired latency
   with Holm-Bonferroni correction, and effect sizes reported alongside p-values.
 
-## 5. Non-functional requirements
+## 5. Service and observability
+
+The agent emits a typed event per lifecycle step (`run_started`, `plan_ready`, `decision`,
+`task_started`, `task_finished`, `run_finished` / `run_failed`) through an `EventSink`. Three
+consumers share that stream: the SSE endpoint, the Prometheus collector and the OpenTelemetry span
+recorder (run span with one child span per task, timestamped from the events). A failing consumer
+is logged and never affects the run. The FastAPI layer adds auth, admission control (bounded
+in-flight runs, `503` + `Retry-After` beyond it), per-run timeouts, request ids and cancellation of
+abandoned streams. Checkpoint serialization is restricted to an explicit allowlist of the agent's
+own types. Details: [DEPLOYMENT.md](DEPLOYMENT.md).
+
+## 6. Non-functional requirements
 
 * **Reliability** — time / token / dollar budgets, cancellation, partial results.
 * **Security** — secrets only from environment, never logged; plan-size limits; schema validation

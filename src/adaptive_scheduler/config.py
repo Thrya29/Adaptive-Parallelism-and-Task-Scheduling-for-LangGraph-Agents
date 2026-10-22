@@ -13,6 +13,7 @@ from __future__ import annotations
 
 from enum import StrEnum
 from functools import lru_cache
+from typing import Literal
 
 from pydantic import AliasChoices, Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -57,6 +58,17 @@ class Settings(BaseSettings):
     task_timeout_s: float = Field(default=120.0, gt=0)
     selector_samples: int = Field(default=64, ge=1, le=10_000)
     log_level: str = "INFO"
+    log_format: Literal["json", "text"] = "json"
+
+    # HTTP service
+    api_key: SecretStr | None = Field(
+        default=None, description="If set, requests must send it in the X-API-Key header."
+    )
+    max_concurrent_runs: int = Field(default=8, ge=1, le=1024)
+    max_request_chars: int = Field(default=8_000, ge=1)
+    run_timeout_s: float = Field(default=300.0, gt=0)
+    service_name: str = "adaptive-scheduler"
+    otel_console: bool = Field(default=False, description="Print spans to stdout (debugging).")
 
     @property
     def has_anthropic_key(self) -> bool:

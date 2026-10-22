@@ -77,6 +77,19 @@ def _cmd_bench(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_serve(args: argparse.Namespace) -> int:
+    import uvicorn  # noqa: PLC0415
+
+    uvicorn.run(
+        "adaptive_scheduler.api.app:create_app",
+        factory=True,
+        host=args.host,
+        port=args.port,
+        log_config=None,  # the app configures structured logging itself
+    )
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="apsched", description=__doc__)
     parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
@@ -104,6 +117,10 @@ def build_parser() -> argparse.ArgumentParser:
     bench.add_argument("--jobs", type=int, default=1, help="worker processes")
     bench.add_argument("--seed", type=int, default=0)
     bench.add_argument("--no-plots", action="store_true", help="skip matplotlib figures")
+
+    serve = sub.add_parser("serve", help="run the HTTP service")
+    serve.add_argument("--host", default="127.0.0.1")
+    serve.add_argument("--port", type=int, default=8080)
     return parser
 
 
@@ -119,6 +136,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return _cmd_run(settings, args)
     if args.command == "bench":
         return _cmd_bench(args)
+    if args.command == "serve":  # pragma: no cover - starts a blocking server
+        return _cmd_serve(args)
     return 1  # pragma: no cover - argparse enforces a valid command
 
 

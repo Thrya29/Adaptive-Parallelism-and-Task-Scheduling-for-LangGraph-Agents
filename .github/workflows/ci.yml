@@ -26,10 +26,29 @@ jobs:
           python-version: ${{ matrix.python-version }}
           cache: pip
       - name: Install
-        run: pip install -e ".[dev,anthropic,experiments]"
+        run: pip install -e ".[dev,anthropic,experiments,api,observability]"
       - name: Lint
         run: ruff check . && ruff format --check .
       - name: Type-check
         run: mypy
       - name: Test (mock LLM only; no secrets in CI)
         run: pytest --cov --cov-report=term-missing
+
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Build image
+        run: docker build -t adaptive-scheduler:ci .
+      - name: Smoke test container
+        run: |
+          docker run -d --name api -p 8080:8080 -e APSCHED_MOCK_TIME_SCALE=0.01 adaptive-scheduler:ci
+          for i in $(seq 1 30); do curl -sf localhost:8080/readyz && break; sleep 1; done
+          curl -sf localhost:8080/healthz
+          curl -sf -X POST localhost:8080/v1/runs -H 'content-type: application/json' \
+            -d '{"request": "Compare A, B and C, then summarize"}' | python3 -c \
+            "import json,sys; d=json.load(sys.stdin); assert d['metrics']['success'], d; print(d['decision']['config_name'])"
+          curl -sf localhost:8080/metrics | grep apsched_runs_total
+      - name: Container logs
+        if: always()
+        run: docker logs api || true
