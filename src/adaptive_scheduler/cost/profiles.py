@@ -68,7 +68,10 @@ def build_profiles(
     context: ContextSize,
     output_tokens: Mapping[TaskType, float] = OUTPUT_TOKEN_PRIORS,
     success: Mapping[TaskType, float] = SUCCESS_PRIORS,
+    per_task_output: Mapping[str, float] | None = None,
 ) -> dict[str, TaskProfile]:
+    """Profiles for every task; ``per_task_output`` overrides the per-type output estimate."""
+    overrides = per_task_output or {}
     profiles: dict[str, TaskProfile] = {}
     for tid in graph.topological_order:
         task = graph.task(tid)
@@ -76,7 +79,7 @@ def build_profiles(
         profiles[tid] = TaskProfile(
             task_type=task.task_type,
             input_tokens=context.per_call + estimate_tokens(task.instruction) + dep_tokens,
-            output_tokens=output_tokens[task.task_type],
+            output_tokens=overrides.get(tid, output_tokens[task.task_type]),
             success_prob=success[task.task_type],
         )
     return profiles

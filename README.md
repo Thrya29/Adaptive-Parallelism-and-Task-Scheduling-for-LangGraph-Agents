@@ -34,8 +34,8 @@ adding agents, it treats agent execution as a classical scheduling problem with 
 | 1 | Core algorithms: DAG model, validation, critical path, list scheduler, task fusion | ✅ done |
 | 2 | Cost model, mock LLM, simulator, Monte Carlo strategy selector | ✅ done |
 | 3 | LangGraph planner / executor / synthesizer, Anthropic backend, reliability | ✅ done |
-| 4 | Benchmark suite and experiment harness (simulation) | ⏳ next |
-| 5 | Real-LLM experiments, analysis, report | planned |
+| 4 | Benchmark suite, experiments, statistics, figures | ✅ done |
+| 5 | Real-LLM validation, analysis, report | ⏳ next |
 | 6 | FastAPI service, observability, Docker, deployment | planned |
 
 ## Quickstart
@@ -47,7 +47,7 @@ git clone https://github.com/Thrya29/Adaptive-Parallelism-and-Task-Scheduling-fo
 cd Adaptive-Parallelism-and-Task-Scheduling-for-LangGraph-Agents
 python -m venv .venv
 # Windows: .venv\Scripts\activate    macOS/Linux: source .venv/bin/activate
-pip install -e ".[dev,anthropic]"
+pip install -e ".[dev,anthropic,experiments]"
 apsched info
 ```
 
@@ -145,14 +145,89 @@ Request → Planner → DAG validator → Cost estimator → Critical-path analy
 
 Full details: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
-## Experiments (planned)
+## Results
 
-Strategies compared: single-agent sequential, topological sequential, static level-parallel,
-LLMCompiler-style eager parallel, and the adaptive scheduler (plus ablations).
+All numbers below come from `apsched bench --profile full` (full report:
+[docs/results/RESULTS.md](docs/results/RESULTS.md); raw data in `docs/results/`). They are
+**simulation results** from the calibrated provider model, not measurements against a live API -
+Phase 5 validates the model against real calls.
 
-Metrics: task success rate, mean / P50 / P95 / P99 wall-clock latency, token cost, number of model
-calls, speedup over sequential, and parallel efficiency — reported with bootstrap confidence
-intervals over multiple seeds.
+**Setup.** 34 workloads in 7 families (chains, fan-outs, fork-joins, trees, layered and random
+DAGs, and plans derived from 10 natural-language requests) × 5 environment conditions
+(`baseline`, `tight_limit` = provider allows 2 concurrent calls, `heavy_tail`, `unreliable` = 4×
+failure rate, `misestimated` = the provider is slower than the scheduler believes) × 8 strategies
+× 100 paired seeds = **136,000 runs**. The selector predicts on its own seeds; strategies are
+scored on shared evaluation seeds; hindsight-optimal configurations are determined on a separate
+200-run oracle sample per candidate. Latencies include the selector's own compute time.
+
+### Pooled results (all workloads)
+
+| condition | sequential | static parallel | eager parallel (LLMCompiler-style) | **adaptive** |
+|---|---|---|---|---|
+| baseline | 73.6 s | 42.6 s | 40.2 s | **39.9 s** (1.84× [1.81, 1.88]) |
+| tight provider limit | 73.4 s | 56.6 s | 55.6 s | **48.0 s** (1.53× [1.51, 1.54]) |
+| heavy-tailed latency | 96.2 s | 61.7 s | 57.6 s | **56.9 s** (1.69× [1.66, 1.72]) |
+| unreliable provider | 81.4 s | 48.1 s | 45.1 s | **45.0 s** (1.81× [1.78, 1.84]) |
+| misestimated cost model | 99.0 s | 60.3 s | 57.0 s | **55.5 s** (1.79× [1.76, 1.81]) |
+
+Mean end-to-end latency; adaptive's speedup over sequential with a paired-bootstrap 95% CI.
+
+![Speedup by workload family](docs/results/speedup_by_family.png)
+![P95 latency by condition](docs/results/p95_by_condition.png)
+
+### Findings
+
+1. **H1 - the adaptive scheduler never loses to the right fixed strategy, and the right fixed
+   strategy changes.** Across 35 (family × condition) cells, adaptive is within 5% of the best fixed
+   strategy in **100%** of cells and better or equal in 66% (median 1.8% better on the
+   latency/P95/cost objective; worst cell +3.8%). No fixed strategy has that property: sequential
+   is right for chains, eager fan-out for benign wide graphs, bounded concurrency under rate limits.
+2. **Blind fan-out is punished by provider limits.** With a 2-call provider limit, eager and
+   static fan-out queue on HTTP-429 back-off; adaptive bounds concurrency at the limit and is
+   **14% faster in mean and P95** than the LLMCompiler-style eager baseline (48.0 s vs 55.6 s;
+   P95 102 s vs 119 s). Level-synchronous execution (what LangGraph supersteps give you) is
+   7-18% slower than adaptive in every condition because of barrier stalls.
+3. **H2 - dependency-blind multi-agent execution collapses on dependent work.** Running all agents
+   at once without their upstream inputs and aggregating with a decision agent looks fastest
+   (2.0× over sequential) but succeeds in only **7.5-22%** of runs on chains, trees, fork-joins,
+   layered and random DAGs (vs ~100% for DAG execution), and 69-78% even on mostly parallel
+   plans - the error-amplification mechanism reported for independent multi-agent systems. The
+   per-task quality q = 0.8 is an assumption; the report includes a sensitivity table for
+   q in [0.6, 1.0].
+4. **H3 - critical-path priority helps, modestly.** Versus FIFO ordering with the same selector:
+   -2.4% mean and -1.9% P95 latency (p < 0.001, 17,000 pairs), largest under tight limits.
+5. **H4 - task fusion saves calls without hurting success, modestly.** -2.5% model calls and
+   -0.8% cost, no change in success rate, latency +0.2%. Fusion only applies to linear chain
+   segments, which are a small part of most plans.
+6. **The selector is accurate, and robust to a wrong cost model.** It picked the
+   hindsight-optimal configuration in **70%** of units and one within 5% of optimal in **91%**
+   (mean regret 1.0%). Its latency predictions are within ±1.1% when the cost model is right.
+   When the provider is 30% slower than believed, predictions are off by -30% but the *ranking* of
+   configurations is preserved, so decisions stay near-optimal (mean regret 1.1%).
+7. **Honest negative result.** A simple rule - `k = min(provider limit, plan width)` with
+   critical-path priority - matches the adaptive scheduler's latency (within 1%; adaptive is
+   0.4 s slower on average, statistically significant but practically negligible). The Monte Carlo
+   selector's measurable gains over that rule are fewer calls and lower cost (fusion), and it
+   *derives* the rule from the cost model rather than hard-coding it; it does not find extra latency
+   beyond it in these conditions. With 3,400-17,000 pairs per test, even tiny differences are
+   "significant", so effect sizes, not p-values, should be read.
+
+### Methodological lessons the benchmark surfaced (and fixes)
+
+- **Noise-aware constraints.** The selector originally filtered candidates by *Monte Carlo
+  estimated* success rate with a 1% tolerance - below the ~2% sampling error at 64 samples - so
+  noise excluded good configurations (10% slower under `unreliable`). Success probability is now
+  computed **analytically** (`prod (1 - (1 - p)^(retries+1))`), which is exact in the model.
+- **Noisy oracles.** Under heavy-tailed latency a 30-run mean has a ~±30% confidence interval;
+  "24% regret" cases turned out to be correct choices once re-scored on 400 runs. Hindsight is now
+  scored on a separate 200-run oracle sample, and strategy comparisons use 100 paired seeds.
+
+Reproduce everything (about 2-3 minutes on 4 cores, no API key):
+
+```bash
+apsched bench --profile full --jobs 4 --out docs/results
+apsched bench --profile quick          # seconds; smoke test
+```
 
 ## Development
 
@@ -179,6 +254,8 @@ src/adaptive_scheduler/
   llm/          deterministic MockChatModel (LangChain-compatible) and provider factory
   agent/        LangGraph workflow (plan -> repair -> schedule -> execute -> synthesize),
                 LLM and heuristic planners, async TaskExecutor, prompts
+  bench/        workload families, environment conditions, dependency-blind baseline,
+                experiment runner, statistics (bootstrap, Wilcoxon, Holm), report & figures
   report.py     text rendering of a run (plan, candidate table, Gantt timeline, metrics)
   config.py     settings and LLM provider resolution (auto | mock | anthropic)
   cli.py        `apsched` command
@@ -186,7 +263,7 @@ tests/
   unit/         hand-checked examples
   property/     Hypothesis invariants over thousands of random DAGs
   integration/  end-to-end agent runs on the mock LLM; live Anthropic test (`pytest -m live`)
-docs/           architecture and research report
+docs/           architecture; results/ holds benchmark data, report and figures
 ```
 
 ### What the tests guarantee
@@ -205,18 +282,6 @@ duration vector, worker count `k` and priority policy:
 - with randomness switched off, the stochastic engine reproduces the deterministic list and
   level-parallel schedulers exactly, and every task is accounted for (completed / failed /
   cancelled) under random failures and rate limits.
-
-### Early simulation check (default provider model, 200 samples per strategy)
-
-| Plan shape | W / S | Sequential | Static parallel | Eager parallel | Adaptive (chosen config) |
-|---|---|---|---|---|---|
-| chain of 8 | 1.00 | 54.6 s | 54.6 s | 54.6 s | **54.6 s** (k = 1) |
-| fan-out 16 → merge | 7.75 | 115.6 s | 33.5 s | 33.5 s | **32.4 s** (k = 8, provider limit) |
-| mixed, 11 tasks | 2.20 | 75.4 s | 44.2 s | 40.0 s | **40.0 s** (k = 6) |
-
-The selector matches the best fixed strategy on each shape without being told the shape. These
-are sanity checks, not the study results; the full experiment suite (Phase 4) sweeps provider
-limits, cost heterogeneity and failure rates, and adds a dependency-blind multi-agent baseline.
 
 ## References
 

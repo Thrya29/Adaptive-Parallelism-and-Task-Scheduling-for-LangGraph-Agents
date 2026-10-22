@@ -155,7 +155,28 @@ A contextual bandit (Thompson sampling) over graph features (`W/S`, depth, width
 heterogeneity) that learns which strategy wins on which workload, compared against the
 model-based selector.
 
-## 4. Non-functional requirements
+## 4. Evaluation methodology
+
+Implemented in `adaptive_scheduler/bench` and run with `apsched bench`.
+
+* **Workloads** - seven DAG families spanning `W/S` from 1 to ~10 (chain, fan-out, fork-join,
+  binary tree, layered, random, and plans derived from natural-language requests), with per-task
+  output lengths drawn log-normally (sigma = 0.6) so branch costs are heterogeneous.
+* **Conditions** - the *true* provider used for evaluation and the *beliefs* used for planning;
+  they differ only in `misestimated`, which measures robustness to cost-model error.
+* **Strategies** - sequential, static level-parallel, eager unbounded (LLMCompiler-style),
+  dependency-blind agents + decision agent, adaptive, and three ablations (FIFO priority, no fusion,
+  `k = provider limit` without a cost model).
+* **Dependency-blind baseline** - every task runs at once without its upstream outputs; a decision
+  agent aggregates. Missing inputs cause *silent* quality failures (retries cannot fix a wrong
+  answer), applied as a per-task correctness probability `q` (default 0.8, sensitivity reported).
+* **Randomness** - selector seeds, paired evaluation seeds (100 per cell) and a separate 200-run
+  oracle sample for hindsight are all derived from stable CRC32 hashes, so results reproduce
+  exactly across machines and process counts.
+* **Statistics** - paired-bootstrap CIs for speedups, Wilcoxon signed-rank tests on paired latency
+  with Holm-Bonferroni correction, and effect sizes reported alongside p-values.
+
+## 5. Non-functional requirements
 
 * **Reliability** — time / token / dollar budgets, cancellation, partial results.
 * **Security** — secrets only from environment, never logged; plan-size limits; schema validation

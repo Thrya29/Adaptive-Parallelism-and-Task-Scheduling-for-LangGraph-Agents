@@ -6,7 +6,14 @@ token cost, number of model calls and success rate. It then picks the candidate 
 
     J = mean_latency + alpha * p95_latency + usd_weight * cost_usd
 
-among candidates whose predicted success rate is within ``success_tolerance`` of the best.
+among candidates whose success probability is within ``success_tolerance`` of the best.
+
+Success probability is computed *analytically*, not from the Monte Carlo runs: in the cost model
+a task's attempts succeed independently of timing, so a plan succeeds with probability
+``prod_t (1 - (1 - p_t) ** (retries + 1))``. It depends on the configuration only through task
+fusion (which changes the set of calls and their success probabilities). Using the Monte Carlo
+estimate instead let sampling noise (standard error ~2% at p = 0.97 with 64 samples) exclude
+good configurations - a flaw the benchmark exposed under the ``unreliable`` condition.
 Near-ties (within ``parsimony``) go to the simplest architecture - fewest workers, then fewest
 calls - so an inherently sequential plan is executed sequentially rather than paying
 coordination overhead for nothing.
@@ -19,7 +26,7 @@ from __future__ import annotations
 
 import math
 import time
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 
 import numpy as np
@@ -58,12 +65,17 @@ class Prediction:
     p95_latency: float
     mean_cost_usd: float
     mean_calls: float
-    success_rate: float
+    success_rate: float  # Monte Carlo estimate (reported)
+    expected_success: float  # exact probability under the cost model (used for selection)
     score: float
 
     @classmethod
     def from_runs(
-        cls, config: ExecutionConfig, runs: Sequence[RunResult], objective: Objective
+        cls,
+        config: ExecutionConfig,
+        runs: Sequence[RunResult],
+        objective: Objective,
+        expected_success: float,
     ) -> Prediction:
         latencies = np.array([r.makespan for r in runs])
         mean, p95 = float(latencies.mean()), float(np.percentile(latencies, 95))
@@ -75,6 +87,7 @@ class Prediction:
             mean_cost_usd=cost,
             mean_calls=float(np.mean([r.model_calls for r in runs])),
             success_rate=float(np.mean([r.success for r in runs])),
+            expected_success=expected_success,
             score=objective.score(mean, p95, cost),
         )
 
@@ -110,12 +123,21 @@ def predict(
     per_call_context_tokens: float = 0.0,
     retry: RetryPolicy | None = None,
 ) -> Prediction:
+    retry = retry or RetryPolicy()
     plan = prepare(graph, profiles, provider, config, per_call_context_tokens)
     runs = [
         simulate(plan, provider, config, np.random.default_rng([seed, i]), retry)
         for i in range(samples)
     ]
-    return Prediction.from_runs(config, runs, objective)
+    return Prediction.from_runs(
+        config, runs, objective, plan_success_probability(plan.profiles.values(), retry)
+    )
+
+
+def plan_success_probability(profiles: Iterable[TaskProfile], retry: RetryPolicy) -> float:
+    """Probability that every task eventually succeeds within its retry budget."""
+    attempts = retry.max_retries + 1
+    return math.prod(1 - (1 - p.success_prob) ** attempts for p in profiles)
 
 
 def select_strategy(
@@ -152,9 +174,9 @@ def select_strategy(
         )
         for cfg in configs
     )
-    best_success = max(p.success_rate for p in predictions)
+    best_success = max(p.expected_success for p in predictions)
     feasible = [
-        p for p in predictions if p.success_rate >= best_success - objective.success_tolerance
+        p for p in predictions if p.expected_success >= best_success - objective.success_tolerance
     ]
     best_score = min(p.score for p in feasible)
     acceptable = [p for p in feasible if p.score <= best_score * (1 + objective.parsimony)]

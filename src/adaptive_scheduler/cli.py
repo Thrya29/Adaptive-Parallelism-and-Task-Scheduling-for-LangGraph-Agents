@@ -51,6 +51,32 @@ def _cmd_run(settings: Settings, args: argparse.Namespace) -> int:
     return 0 if result.metrics.success else 1
 
 
+def _cmd_bench(args: argparse.Namespace) -> int:
+    from dataclasses import replace  # noqa: PLC0415
+    from pathlib import Path  # noqa: PLC0415
+
+    from adaptive_scheduler.bench import PROFILES, run_benchmark  # noqa: PLC0415
+
+    cfg = replace(PROFILES[args.profile], seed=args.seed)
+
+    def progress(done: int, total: int) -> None:
+        if done == total or done % max(1, total // 10) == 0:
+            print(f"  {done}/{total} units", file=sys.stderr)
+
+    print(
+        f"Running '{args.profile}' benchmark ({args.jobs} process(es)) -> {args.out}",
+        file=sys.stderr,
+    )
+    analysis = run_benchmark(
+        cfg, Path(args.out), jobs=args.jobs, plots=not args.no_plots, progress=progress
+    )
+    h1, sel = analysis["h1"], analysis["selection"]
+    print(f"H1: adaptive within 5% of the best fixed strategy in {h1['within_5pct_rate']:.0%}")
+    print(f"Selector picked the hindsight-best configuration in {sel['exact_rate']:.0%} of units")
+    print(f"Report: {Path(args.out) / 'RESULTS.md'}")
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="apsched", description=__doc__)
     parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
@@ -71,6 +97,13 @@ def build_parser() -> argparse.ArgumentParser:
         help="execution strategy (default: adaptive)",
     )
     run.add_argument("--json", action="store_true", help="print the full result as JSON")
+
+    bench = sub.add_parser("bench", help="run the benchmark suite (simulation; no API key needed)")
+    bench.add_argument("--profile", choices=["quick", "full"], default="quick")
+    bench.add_argument("--out", default="docs/results", help="output directory")
+    bench.add_argument("--jobs", type=int, default=1, help="worker processes")
+    bench.add_argument("--seed", type=int, default=0)
+    bench.add_argument("--no-plots", action="store_true", help="skip matplotlib figures")
     return parser
 
 
@@ -84,6 +117,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return _cmd_info(settings)
     if args.command == "run":
         return _cmd_run(settings, args)
+    if args.command == "bench":
+        return _cmd_bench(args)
     return 1  # pragma: no cover - argparse enforces a valid command
 
 
