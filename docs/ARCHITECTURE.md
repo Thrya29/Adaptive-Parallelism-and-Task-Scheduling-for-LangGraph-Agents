@@ -105,11 +105,38 @@ finish, observed durations replace estimates and remaining ranks are updated. Gr
 `makespan ≤ (2 − 1/k) · OPT` for any list schedule, which we verify empirically against the lower
 bound.
 
-### 3.8 Executor
-LangGraph `StateGraph` with the `Send` API for dynamic fan-out, reducers for merging task results
-into shared state, per-task timeouts, retries with exponential backoff + jitter, failure isolation
-(dependents of a failed task are skipped, independent branches continue), and checkpointing for
-resumability.
+### 3.8 LangGraph workflow and executor
+
+```
+START -> plan --(invalid, attempts left)--> plan
+              \-(valid, or fallback)-----> schedule -> execute -> synthesize -> END
+```
+
+* **plan** — the planner returns a `PlanSpec` (structured output / tool calling with a real model;
+  a deterministic heuristic decomposition with the mock). It is validated into a `TaskGraph`,
+  transitively reduced and checked against size limits. The exact error (e.g.
+  `dependency cycle: a -> b -> a`, `plan has 40 tasks; limit is 32`) is fed back for one repair
+  attempt; a still-invalid plan degrades to a single-task plan and the run is marked unsuccessful.
+* **schedule** — builds cost profiles from the estimator's current beliefs and runs the selector
+  (or applies a fixed baseline), storing every candidate's prediction in the state so the decision
+  is explainable.
+* **execute** — `TaskExecutor` runs the (possibly fused) graph and its observations update the
+  `CostEstimator`.
+* **synthesize** — if the plan has a single sink that completed, its output *is* the answer (no
+  extra call); otherwise one synthesis call combines the available results and names the missing
+  parts.
+
+**Why the executor is not a set of LangGraph `Send` branches.** LangGraph executes graphs in
+Pregel-style *supersteps*: branches fanned out with `Send` run in parallel, but the next superstep
+starts only after all of them finish. Mapping each plan level onto a superstep therefore yields
+exactly the level-synchronous `static_parallel` baseline, with its barrier stalls. To get greedy
+list scheduling, the `execute` node runs an asyncio worker pool driven by the shared `ReadyQueue`:
+a task starts the moment its own dependencies finish and a worker slot is free.
+
+The executor holds a worker slot across retries, enforces a timeout per attempt, retries any
+provider error with jittered exponential back-off, and on final failure cancels only the failed
+task's transitive dependents. Real Anthropic clients are created with `max_retries=0` so every
+retry is owned, counted and scheduled by the executor.
 
 ### 3.9 LLM backends
 A single interface with two implementations:

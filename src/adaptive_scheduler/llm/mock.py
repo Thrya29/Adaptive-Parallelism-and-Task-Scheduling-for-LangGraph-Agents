@@ -95,7 +95,7 @@ class MockChatModel(BaseChatModel):
 
         tag = hashlib.sha256(prompt.encode()).hexdigest()[:8]
         last = messages[-1].text if messages else ""
-        content = f"[mock {tag}] Response to: {last[:120]}"
+        content = _filler(f"[mock {tag}] Response to: {last[:120]}", output_tokens, rng)
         message = AIMessage(
             content=content,
             usage_metadata={
@@ -154,6 +154,25 @@ class MockChatModel(BaseChatModel):
             finally:
                 self._exit()
         return _result(message)
+
+
+_WORDS = (
+    "analysis", "result", "data", "evidence", "estimate", "trend", "growth", "market", "risk",
+    "factor", "summary", "detail", "source", "figure", "comparison", "outcome", "finding",
+    "context", "assumption", "scenario", "metric",
+)  # fmt: skip
+
+
+def _filler(header: str, output_tokens: int, rng: np.random.Generator) -> str:
+    """Text of roughly ``output_tokens`` tokens, so downstream prompts grow realistically."""
+    target_chars = 4 * output_tokens
+    words = [header]
+    length = len(header)
+    while length < target_chars:
+        word = _WORDS[int(rng.integers(len(_WORDS)))]
+        words.append(word)
+        length += len(word) + 1
+    return " ".join(words)[: max(target_chars, len(header))]
 
 
 def _result(message: AIMessage | None) -> ChatResult:

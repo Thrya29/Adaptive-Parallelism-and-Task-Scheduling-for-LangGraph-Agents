@@ -75,12 +75,16 @@ class CostEstimator:
         input_tokens: float,
         output_tokens: float,
         succeeded: bool,
+        update_type_stats: bool = True,
     ) -> None:
-        a = self.alpha
-        self.output_tokens[task_type] = (1 - a) * self.output_tokens[task_type] + a * output_tokens
-        # Success probability is kept away from 0/1 so one observation never makes it degenerate.
-        target = 0.999 if succeeded else 0.001
-        self.success[task_type] = (1 - a) * self.success[task_type] + a * target
+        if update_type_stats:
+            a = self.alpha
+            self.output_tokens[task_type] = (1 - a) * self.output_tokens[
+                task_type
+            ] + a * output_tokens
+            # Kept away from 0/1 so a single observation never makes the estimate degenerate.
+            target = 0.999 if succeeded else 0.001
+            self.success[task_type] = (1 - a) * self.success[task_type] + a * target
         # E[latency] = tail_factor * (ttft + n_in / prefill + n_out / decode). Divide out the tail
         # factor and the (known) prefill time so the fit isolates ttft and 1 / decode speed.
         y = latency_s / self._tail_factor() - input_tokens / self.prior.prefill_tps

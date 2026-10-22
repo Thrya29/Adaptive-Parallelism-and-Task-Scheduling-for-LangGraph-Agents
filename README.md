@@ -33,8 +33,8 @@ adding agents, it treats agent execution as a classical scheduling problem with 
 | 0 | Project scaffold, configuration, CI, design docs | ✅ done |
 | 1 | Core algorithms: DAG model, validation, critical path, list scheduler, task fusion | ✅ done |
 | 2 | Cost model, mock LLM, simulator, Monte Carlo strategy selector | ✅ done |
-| 3 | LangGraph planner / executor / synthesizer, Anthropic backend, reliability | ⏳ next |
-| 4 | Benchmark suite and experiment harness (simulation) | planned |
+| 3 | LangGraph planner / executor / synthesizer, Anthropic backend, reliability | ✅ done |
+| 4 | Benchmark suite and experiment harness (simulation) | ⏳ next |
 | 5 | Real-LLM experiments, analysis, report | planned |
 | 6 | FastAPI service, observability, Docker, deployment | planned |
 
@@ -62,6 +62,62 @@ Control it explicitly with `APSCHED_LLM_PROVIDER` (`auto` | `mock` | `anthropic`
 
 ```bash
 apsched --provider mock info
+```
+
+### Run the agent
+
+```bash
+apsched run "Research the EV markets of India, China and Germany, then compare their growth and risks, then write a short investment summary"
+apsched run --strategy sequential "..."     # or static_parallel / eager_parallel baselines
+apsched run --json "..."                    # full machine-readable result
+```
+
+Example output (mock LLM, no key; mock latencies run at 0.1x wall-clock):
+
+```
+Plan (7 tasks, attempts=1):
+  [retrieval ] s1_1: Research the EV markets of India
+  [retrieval ] s1_2: Research the EV markets of China
+  [retrieval ] s1_3: Research the EV markets of Germany
+  [reasoning ] s2_1 <- s1_1, s1_2, s1_3: compare their growth
+  [reasoning ] s2_2 <- s1_1, s1_2, s1_3: compare their risks
+  [reasoning ] s3_1 <- s2_1, s2_2: write a short investment summary
+  [synthesis ] final <- s3_1: Combine the results into the final answer to the request.
+
+Strategy: adaptive -> adaptive[k=3,fused]
+  estimated work W=41.2s, critical path S=25.2s, parallelism W/S=1.63
+  candidate                    mean      p95    cost $  calls   succ
+  adaptive[k=3]               30.7s    52.4s   0.01689    7.1  1.000
+ *adaptive[k=3,fused]         30.7s    53.2s   0.01681    6.2  1.000
+  adaptive[k=2]               32.5s    53.8s   0.01689    7.1  1.000
+  adaptive[k=1]               41.7s    62.3s   0.01690    7.1  1.000
+  ...
+
+Execution timeline:
+  s1_1              |#######                                                     |   0.37s completed
+  s1_2              |##########                                                  |   0.54s completed
+  s1_3              |###############                                             |   0.83s completed
+  s2_1              |               ######                                       |   0.34s completed
+  s2_2              |               ##############                               |   0.81s completed
+  fused:s3_1..final |                             ###############################|   1.77s completed
+
+Metrics: wall-clock 4.42s (plan 0.86s, select 0.13s, execute 3.40s, synthesize 0.00s)
+         7 model calls, 4228 in / 3247 out tokens, ~$0.02046, peak concurrency 3, success=yes
+```
+
+The selector ran the three lookups concurrently (k = 3, the plan's width) and fused the final
+chain `s3_1 → final` into one call, saving a model call at no latency cost.
+
+### Use it as a library
+
+```python
+import asyncio
+from adaptive_scheduler.agent import AdaptiveAgent, Strategy
+from adaptive_scheduler.config import Settings
+
+agent = AdaptiveAgent.from_settings(Settings())       # mock or Anthropic, per your settings
+result = asyncio.run(agent.arun("your request", strategy=Strategy.ADAPTIVE))
+print(result.answer, result.metrics, result.decision.config_name)
 ```
 
 API keys are read only from the environment / `.env` (git-ignored) and are never logged.
@@ -121,11 +177,15 @@ src/adaptive_scheduler/
                 contention, heavy tails, retries, failure isolation) and the Monte Carlo
                 strategy selector
   llm/          deterministic MockChatModel (LangChain-compatible) and provider factory
+  agent/        LangGraph workflow (plan -> repair -> schedule -> execute -> synthesize),
+                LLM and heuristic planners, async TaskExecutor, prompts
+  report.py     text rendering of a run (plan, candidate table, Gantt timeline, metrics)
   config.py     settings and LLM provider resolution (auto | mock | anthropic)
   cli.py        `apsched` command
 tests/
   unit/         hand-checked examples
   property/     Hypothesis invariants over thousands of random DAGs
+  integration/  end-to-end agent runs on the mock LLM; live Anthropic test (`pytest -m live`)
 docs/           architecture and research report
 ```
 

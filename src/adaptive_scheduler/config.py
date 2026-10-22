@@ -46,7 +46,16 @@ class Settings(BaseSettings):
     anthropic_model: str = "claude-haiku-5-5"
 
     mock_seed: int = Field(default=0, description="Seed for the deterministic mock LLM.")
-    max_concurrency: int = Field(default=4, ge=1, le=256)
+    mock_time_scale: float = Field(
+        default=0.1, ge=0.0, description="Wall-clock seconds per simulated second for the mock."
+    )
+    max_concurrency: int = Field(
+        default=8, ge=1, le=256, description="Provider concurrency limit (calls in flight)."
+    )
+    max_plan_tasks: int = Field(default=32, ge=1, le=256)
+    max_retries: int = Field(default=2, ge=0, le=10)
+    task_timeout_s: float = Field(default=120.0, gt=0)
+    selector_samples: int = Field(default=64, ge=1, le=10_000)
     log_level: str = "INFO"
 
     @property
