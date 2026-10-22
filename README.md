@@ -8,6 +8,8 @@
 > in parallel and which sequentially — choosing the execution architecture that minimizes latency
 > and cost without reducing task success?
 
+**Full research report: [docs/REPORT.md](docs/REPORT.md).**
+
 This project builds a LangGraph workflow that decomposes a request into tasks, represents their
 dependencies as a **DAG**, **estimates task costs**, analyses the **critical path**, and uses a
 **cost-aware adaptive scheduler** to run independent tasks concurrently only when doing so pays
@@ -35,7 +37,7 @@ adding agents, it treats agent execution as a classical scheduling problem with 
 | 2 | Cost model, mock LLM, simulator, Monte Carlo strategy selector | ✅ done |
 | 3 | LangGraph planner / executor / synthesizer, Anthropic backend, reliability | ✅ done |
 | 4 | Benchmark suite, experiments, statistics, figures | ✅ done |
-| 5 | Real-LLM validation, analysis, report | ⏳ next (needs an API key) |
+| 5 | Real-LLM validation (Claude Haiku 5.5), calibration fix, research report | ✅ done |
 | 6 | FastAPI service, observability, Docker, deployment | ✅ done |
 
 ## Quickstart
@@ -160,10 +162,46 @@ Full details: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ## Results
 
+Two kinds of evidence: a large **simulation study** (136,000 runs) that sweeps regimes a live
+API cannot cheaply produce, and a **live validation on real Claude Haiku 5.5 calls** (160
+executions, 609 task calls, $0.70) that checks the simulation's model and conclusions.
+Full write-up: [docs/REPORT.md](docs/REPORT.md).
+
+### Live validation on Claude Haiku 5.5
+
+Each request is planned once by the real LLM planner and the same plan is executed under every
+strategy. Run 1 (3 repetitions) and run 2 (fresh confirmation) give:
+
+| strategy | run 1 mean / P95 | speedup vs sequential [95% CI] | run 2 mean / P95 | speedup [95% CI] |
+|---|---|---|---|---|
+| sequential | 37.3 s / 74.4 s | 1.00x | 39.3 s / 78.7 s | 1.00x |
+| static parallel | 23.5 s / 45.2 s | 1.59x [1.48, 1.71] | 24.2 s / 47.6 s | 1.63x [1.41, 1.86] |
+| eager parallel | 23.7 s / 44.9 s | 1.57x [1.45, 1.71] | 26.2 s / 45.7 s | 1.50x [1.25, 1.79] |
+| **adaptive** | **22.4 s / 42.9 s** | **1.66x [1.53, 1.80]** | **23.8 s / 38.6 s** | **1.65x [1.37, 1.99]** |
+
+- 100% success, equal cost across strategies; adaptive chose `k = 1` for every single-task plan
+  and `k = plan width` otherwise. Real plans were shallow (2-4 branches) and never rate-limited,
+  so the parallel strategies tie within their CIs - the regime where simulation also predicts
+  ties. The robust effect is parallel vs sequential.
+- **Real LLM latency is ~linear in output length** (corr 0.93, ~190 tokens/s, ~0.7-0.85 s fixed
+  overhead); concurrent calls slow each other by only 1-3%. Haiku 5.5 (adaptive thinking on by
+  default) wrote 4-6x more tokens than the priors assumed, with large per-task variance.
+- **The live run exposed a calibration flaw, which was fixed and confirmed on fresh data.** The
+  first estimator over-predicted latency by +54% in aggregate: predictions made with the *actual*
+  token counts correlate 0.98 with measured makespans, so the structure was right, but output
+  lengths were estimated poorly and the shrinkage never released a 2.6x-too-slow prior. The
+  revised estimator (shrinkage on total evidence, decayed per-type output-length means and
+  spreads, measured residual noise) gives **+1.4% bias in a prequential replay and -2.4% on a
+  fresh confirmation run**, with P50 / P95 coverage of 45% / 88% (ideal 50% / 95%).
+
+```bash
+apsched live-bench --reps 3 --budget 2 --out docs/results/live    # needs ANTHROPIC_API_KEY; ~$0.5
+```
+
+### Simulation study
+
 All numbers below come from `apsched bench --profile full` (full report:
-[docs/results/RESULTS.md](docs/results/RESULTS.md); raw data in `docs/results/`). They are
-**simulation results** from the calibrated provider model, not measurements against a live API -
-Phase 5 validates the model against real calls.
+[docs/results/RESULTS.md](docs/results/RESULTS.md); raw data in `docs/results/`).
 
 **Setup.** 34 workloads in 7 families (chains, fan-outs, fork-joins, trees, layered and random
 DAGs, and plans derived from 10 natural-language requests) × 5 environment conditions
@@ -173,7 +211,7 @@ failure rate, `misestimated` = the provider is slower than the scheduler believe
 scored on shared evaluation seeds; hindsight-optimal configurations are determined on a separate
 200-run oracle sample per candidate. Latencies include the selector's own compute time.
 
-### Pooled results (all workloads)
+#### Pooled results (all workloads)
 
 | condition | sequential | static parallel | eager parallel (LLMCompiler-style) | **adaptive** |
 |---|---|---|---|---|
@@ -188,7 +226,7 @@ Mean end-to-end latency; adaptive's speedup over sequential with a paired-bootst
 ![Speedup by workload family](docs/results/speedup_by_family.png)
 ![P95 latency by condition](docs/results/p95_by_condition.png)
 
-### Findings
+#### Findings
 
 1. **H1 - the adaptive scheduler never loses to the right fixed strategy, and the right fixed
    strategy changes.** Across 35 (family × condition) cells, adaptive is within 5% of the best fixed
@@ -225,7 +263,7 @@ Mean end-to-end latency; adaptive's speedup over sequential with a paired-bootst
    beyond it in these conditions. With 3,400-17,000 pairs per test, even tiny differences are
    "significant", so effect sizes, not p-values, should be read.
 
-### Methodological lessons the benchmark surfaced (and fixes)
+#### Methodological lessons the experiments surfaced (and fixes)
 
 - **Noise-aware constraints.** The selector originally filtered candidates by *Monte Carlo
   estimated* success rate with a 1% tolerance - below the ~2% sampling error at 64 samples - so
@@ -234,6 +272,10 @@ Mean end-to-end latency; adaptive's speedup over sequential with a paired-bootst
 - **Noisy oracles.** Under heavy-tailed latency a 30-run mean has a ~±30% confidence interval;
   "24% regret" cases turned out to be correct choices once re-scored on 400 runs. Hindsight is now
   scored on a separate 200-run oracle sample, and strategy comparisons use 100 paired seeds.
+- **Evaluate distributions, not draws.** Latency is right-skewed, so a correct model shows a
+  positive median error per run; forecasts are judged by aggregate bias and quantile coverage.
+- **Simulated ground truth must not depend on beliefs.** Feeding the estimator's beliefs into the
+  mock's "true" output lengths made estimates random-walk; the mock now has fixed true lengths.
 
 Reproduce everything (about 2-3 minutes on 4 cores, no API key):
 
@@ -268,7 +310,8 @@ src/adaptive_scheduler/
   agent/        LangGraph workflow (plan -> repair -> schedule -> execute -> synthesize),
                 LLM and heuristic planners, async TaskExecutor, prompts
   bench/        workload families, environment conditions, dependency-blind baseline,
-                experiment runner, statistics (bootstrap, Wilcoxon, Holm), report & figures
+                experiment runner, statistics (bootstrap, Wilcoxon, Holm), report & figures,
+                live validation harness, prequential replay
   api/          FastAPI service: JSON + SSE endpoints, auth, admission control, timeouts
   observability/ Prometheus metrics, OpenTelemetry spans, JSON logging (all from run events)
   events.py     typed run events: the single source for streaming, metrics and traces

@@ -31,7 +31,12 @@ from langgraph.graph import END, START, StateGraph
 from pydantic import BaseModel, Field, ValidationError
 
 from adaptive_scheduler.agent import prompts
-from adaptive_scheduler.agent.executor import ExecutionReport, TaskExecutor, TaskStatus
+from adaptive_scheduler.agent.executor import (
+    ExecutionReport,
+    TaskExecutor,
+    TaskStatus,
+    call_kwargs_for,
+)
 from adaptive_scheduler.agent.planning import (
     CallUsage,
     HeuristicPlanner,
@@ -185,16 +190,12 @@ class AdaptiveAgent:
         self.planner = planner
         self.options = options or AgentOptions()
         self.estimator = estimator or CostEstimator(prior=self.options.provider_prior)
-        is_mock = isinstance(llm, MockChatModel)
         self.executor = TaskExecutor(
             llm,
             retry=self.options.retry,
             timeout_s=self.options.task_timeout_s,
             seed=self.options.seed,
-            # Only the mock understands the output-length hint; real APIs would reject it.
-            call_kwargs=(lambda p: {"expected_output_tokens": round(p.output_tokens)})
-            if is_mock
-            else None,
+            call_kwargs=call_kwargs_for(llm),
         )
         self.graph = self._build(checkpointer)
 
@@ -205,7 +206,13 @@ class AdaptiveAgent:
         llm = create_chat_model(settings)
         provider = settings.resolve_provider()
         scale = settings.mock_time_scale if provider is LLMProvider.MOCK else 1.0
-        prior = ProviderProfile(max_concurrency=settings.max_concurrency)
+        prior = (
+            ProviderProfile.for_model(
+                settings.anthropic_model, max_concurrency=settings.max_concurrency
+            )
+            if provider is LLMProvider.ANTHROPIC
+            else ProviderProfile(max_concurrency=settings.max_concurrency)
+        )
         if isinstance(llm, MockChatModel):
             llm = llm.model_copy(update={"time_scale": scale, "provider_profile": prior})
         base_retry = RetryPolicy(max_retries=settings.max_retries)
@@ -483,20 +490,7 @@ class AdaptiveAgent:
         return {"report": report, "timings": _add(state, "execution", started)}
 
     def _learn(self, graph: TaskGraph, report: ExecutionReport) -> None:
-        scale = self.options.time_scale or 1.0
-        for tid, rec in report.records.items():
-            if rec.status is TaskStatus.CANCELLED or not rec.call_latencies_s:
-                continue
-            task = graph.task(tid)
-            self.estimator.observe(
-                task.task_type,
-                latency_s=rec.call_latencies_s[-1] / scale,
-                input_tokens=rec.input_tokens,
-                output_tokens=rec.output_tokens,
-                succeeded=rec.status is TaskStatus.COMPLETED,
-                # A fused call's output covers several tasks: keep it out of per-type averages.
-                update_type_stats=not task.fused_from,
-            )
+        learn_from_report(self.estimator, graph, report, self.options.time_scale)
 
     async def _synthesize(self, state: AgentState) -> dict[str, Any]:
         started = time.perf_counter()
@@ -555,6 +549,26 @@ class AdaptiveAgent:
             report=report,
             metrics=metrics,
             plan_errors=state["plan_errors"],
+        )
+
+
+def learn_from_report(
+    estimator: CostEstimator, graph: TaskGraph, report: ExecutionReport, time_scale: float = 1.0
+) -> None:
+    """Feed every executed call of a run into the estimator (latency rescaled to model seconds)."""
+    scale = time_scale or 1.0
+    for tid, rec in report.records.items():
+        if rec.status is TaskStatus.CANCELLED or not rec.call_latencies_s:
+            continue
+        task = graph.task(tid)
+        estimator.observe(
+            task.task_type,
+            latency_s=rec.call_latencies_s[-1] / scale,
+            input_tokens=rec.input_tokens,
+            output_tokens=rec.output_tokens,
+            succeeded=rec.status is TaskStatus.COMPLETED,
+            # A fused call's output covers several tasks: keep it out of per-type averages.
+            update_type_stats=not task.fused_from,
         )
 
 

@@ -68,6 +68,7 @@ class Prediction:
     success_rate: float  # Monte Carlo estimate (reported)
     expected_success: float  # exact probability under the cost model (used for selection)
     score: float
+    p50_latency: float = 0.0
 
     @classmethod
     def from_runs(
@@ -89,6 +90,7 @@ class Prediction:
             success_rate=float(np.mean([r.success for r in runs])),
             expected_success=expected_success,
             score=objective.score(mean, p95, cost),
+            p50_latency=float(np.percentile(latencies, 50)),
         )
 
 

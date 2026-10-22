@@ -77,9 +77,10 @@ def test_task_profile_validation() -> None:
         TaskProfile(TaskType.REASONING, -1, 1, 0.5)
 
 
-def test_estimator_recovers_provider_parameters() -> None:
+def test_estimator_recovers_mean_latency() -> None:
+    """After calibration, predicted mean latency matches the true provider's mean latency."""
     true = ProviderProfile(ttft_s=1.2, decode_tps=40.0)
-    est = CostEstimator(prior=ProviderProfile(), decay=1.0)
+    est = CostEstimator(prior=ProviderProfile())
     assert est.provider() == est.prior  # no data yet -> prior
     rng = np.random.default_rng(0)
     for _ in range(4000):
@@ -89,19 +90,62 @@ def test_estimator_recovers_provider_parameters() -> None:
             TaskType.REASONING, latency_s=lat, input_tokens=1500, output_tokens=out, succeeded=True
         )
     fitted = est.provider()
-    assert fitted.ttft_s == pytest.approx(1.2, rel=0.1)
-    assert fitted.decode_tps == pytest.approx(40.0, rel=0.05)
+    for out in (50, 300, 800):
+        assert fitted.expected_latency(1500, out) == pytest.approx(
+            true.expected_latency(1500, out), rel=0.05
+        )
+    assert fitted.tail_prob < 0.01  # the assumed tail is replaced by the measured residual spread
+    assert 0.2 < fitted.noise_sigma < 0.7
+
+
+def test_poor_prior_fades_with_evidence() -> None:
+    """A prior 2.5x too slow must not keep weight forever (regression test for the live run)."""
+    true = ProviderProfile(ttft_s=0.7, decode_tps=200.0, noise_sigma=0.1, tail_prob=0.0)
+    est = CostEstimator(prior=ProviderProfile(decode_tps=80.0))
+    rng = np.random.default_rng(1)
+    for _ in range(500):
+        out = float(rng.uniform(500, 4000))
+        est.observe(
+            TaskType.REASONING,
+            latency_s=true.sample_latency(rng, 1000, out),
+            input_tokens=1000,
+            output_tokens=out,
+            succeeded=True,
+        )
+    assert est.provider().expected_latency(1000, 2000) == pytest.approx(
+        true.expected_latency(1000, 2000), rel=0.05
+    )
 
 
 def test_estimator_tracks_tokens_and_success() -> None:
     est = CostEstimator(alpha=0.5)
-    for _ in range(30):
+    rng = np.random.default_rng(2)
+    for _ in range(200):
+        out = float(rng.lognormal(np.log(2000), 0.6))
         est.observe(
-            TaskType.TOOL_CALL, latency_s=1.0, input_tokens=10, output_tokens=900, succeeded=False
+            TaskType.TOOL_CALL, latency_s=1.0, input_tokens=10, output_tokens=out, succeeded=False
         )
-    assert est.output_token_estimates()[TaskType.TOOL_CALL] == pytest.approx(900, rel=1e-3)
+    # Decayed mean over a ~50-call window of a lognormal with mean 2000 * exp(0.18) ~ 2394.
+    assert est.output_token_estimates()[TaskType.TOOL_CALL] == pytest.approx(2394, rel=0.2)
+    assert est.provider().output_tokens_sigma == pytest.approx(0.6, rel=0.2)
     assert est.success_estimates()[TaskType.TOOL_CALL] < 0.01
     assert est.success_estimates()[TaskType.RETRIEVAL] == 0.98  # untouched prior
-    assert est.observations == 30
+    assert est.observations == 200
+
+
+def test_single_long_output_cannot_swing_estimate() -> None:
+    est = CostEstimator()
+    est.observe(
+        TaskType.RETRIEVAL, latency_s=60, input_tokens=10, output_tokens=6000, succeeded=True
+    )
+    # (3 * 300 + 6000) / (3 + 1) = 1725: moves, but not all the way to one extreme sample.
+    assert est.output_token_estimates()[TaskType.RETRIEVAL] == pytest.approx(1725)
+
+
+def test_estimator_validation() -> None:
     with pytest.raises(ValueError, match="alpha"):
         CostEstimator(alpha=0)
+    with pytest.raises(ValueError, match="decay"):
+        CostEstimator(decay=0)
+    with pytest.raises(ValueError, match="prior"):
+        CostEstimator(prior_strength=-1)

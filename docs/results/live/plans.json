@@ -1,0 +1,439 @@
+[
+  {
+    "request_id": 0,
+    "request": "Research the EV markets of India, China and Germany, then compare their growth and risks, then write a short investment summary",
+    "attempts": 1,
+    "planning_s": 3.6837194999679923,
+    "input_tokens": 1093,
+    "output_tokens": 529,
+    "num_tasks": 5,
+    "depth": 3,
+    "max_width": 3,
+    "tasks": [
+      {
+        "id": "research_india_ev",
+        "instruction": "Research the current electric vehicle (EV) market in India: sales volumes, adoption rates, key policies and subsidies, major players, charging infrastructure, and recent growth trends.",
+        "task_type": "retrieval",
+        "depends_on": [],
+        "fused_from": []
+      },
+      {
+        "id": "research_china_ev",
+        "instruction": "Research the current electric vehicle (EV) market in China: sales volumes, adoption rates, key policies and subsidies, major players, charging infrastructure, and recent growth trends.",
+        "task_type": "retrieval",
+        "depends_on": [],
+        "fused_from": []
+      },
+      {
+        "id": "research_germany_ev",
+        "instruction": "Research the current electric vehicle (EV) market in Germany: sales volumes, adoption rates, key policies and subsidies, major players, charging infrastructure, and recent growth trends.",
+        "task_type": "retrieval",
+        "depends_on": [],
+        "fused_from": []
+      },
+      {
+        "id": "compare_growth_risks",
+        "instruction": "Using the research on the India, China and Germany EV markets, compare their growth prospects and risks side by side (market size, growth rate, policy support, infrastructure, competition, regulatory and economic risks).",
+        "task_type": "reasoning",
+        "depends_on": [
+          "research_india_ev",
+          "research_china_ev",
+          "research_germany_ev"
+        ],
+        "fused_from": []
+      },
+      {
+        "id": "investment_summary",
+        "instruction": "Write a short investment summary of the EV markets of India, China and Germany based on the growth and risk comparison, highlighting the main opportunities and risks for each market and a balanced overall takeaway.",
+        "task_type": "synthesis",
+        "depends_on": [
+          "compare_growth_risks"
+        ],
+        "fused_from": []
+      }
+    ]
+  },
+  {
+    "request_id": 1,
+    "request": "Summarize the attached quarterly report",
+    "attempts": 1,
+    "planning_s": 1.322440700023435,
+    "input_tokens": 1071,
+    "output_tokens": 139,
+    "num_tasks": 1,
+    "depth": 1,
+    "max_width": 1,
+    "tasks": [
+      {
+        "id": "summarize_report",
+        "instruction": "Summarize the attached quarterly report. Cover the key financial results, notable trends, major events or developments, and any outlook or risks mentioned. If the report is not actually attached or its content is unavailable, state that clearly and do not invent details.",
+        "task_type": "generation",
+        "depends_on": [],
+        "fused_from": []
+      }
+    ]
+  },
+  {
+    "request_id": 2,
+    "request": "Find the population, GDP and capital of France, Japan, Brazil and Kenya, then rank them",
+    "attempts": 1,
+    "planning_s": 2.675143500091508,
+    "input_tokens": 1091,
+    "output_tokens": 401,
+    "num_tasks": 5,
+    "depth": 2,
+    "max_width": 4,
+    "tasks": [
+      {
+        "id": "france_data",
+        "instruction": "Find the current population, GDP, and capital city of France. State the year or date of each figure.",
+        "task_type": "retrieval",
+        "depends_on": [],
+        "fused_from": []
+      },
+      {
+        "id": "japan_data",
+        "instruction": "Find the current population, GDP, and capital city of Japan. State the year or date of each figure.",
+        "task_type": "retrieval",
+        "depends_on": [],
+        "fused_from": []
+      },
+      {
+        "id": "brazil_data",
+        "instruction": "Find the current population, GDP, and capital city of Brazil. State the year or date of each figure.",
+        "task_type": "retrieval",
+        "depends_on": [],
+        "fused_from": []
+      },
+      {
+        "id": "kenya_data",
+        "instruction": "Find the current population, GDP, and capital city of Kenya. State the year or date of each figure.",
+        "task_type": "retrieval",
+        "depends_on": [],
+        "fused_from": []
+      },
+      {
+        "id": "rank_and_report",
+        "instruction": "Using the population, GDP, and capital data for France, Japan, Brazil, and Kenya, rank the four countries by population and by GDP (highest to lowest), and present a clear summary table listing each country's population, GDP, and capital, along with the rankings.",
+        "task_type": "synthesis",
+        "depends_on": [
+          "france_data",
+          "japan_data",
+          "brazil_data",
+          "kenya_data"
+        ],
+        "fused_from": []
+      }
+    ]
+  },
+  {
+    "request_id": 3,
+    "request": "Draft a project plan, then estimate its cost, then list the main risks, then write an email",
+    "attempts": 1,
+    "planning_s": 3.05735120002646,
+    "input_tokens": 1086,
+    "output_tokens": 539,
+    "num_tasks": 4,
+    "depth": 3,
+    "max_width": 2,
+    "tasks": [
+      {
+        "id": "draft_project_plan",
+        "instruction": "Draft a project plan for the project described in the user's request. The request is: 'Draft a project plan, then estimate its cost, then list the main risks, then write an email'. No specific project details were given, so assume a generic, reasonable software or business project and state your assumptions explicitly. Include scope, objectives, phases/milestones, timeline, team roles, and deliverables.",
+        "task_type": "generation",
+        "depends_on": [],
+        "fused_from": []
+      },
+      {
+        "id": "estimate_cost",
+        "instruction": "Using the project plan produced by the previous step, estimate the total project cost. Break it down into labor (by role and duration), tools/software, infrastructure, and contingency (about 15%). Show assumptions and give a total range.",
+        "task_type": "reasoning",
+        "depends_on": [
+          "draft_project_plan"
+        ],
+        "fused_from": []
+      },
+      {
+        "id": "list_risks",
+        "instruction": "Using the project plan produced by the previous step, list the main project risks. For each risk give a description, likelihood, impact, and a mitigation strategy. Rank them by severity.",
+        "task_type": "reasoning",
+        "depends_on": [
+          "draft_project_plan"
+        ],
+        "fused_from": []
+      },
+      {
+        "id": "write_email",
+        "instruction": "Write a professional email to stakeholders summarizing the project plan, its estimated cost, and its main risks. Use the project plan, cost estimate, and risk list from the previous steps. Keep it concise, with a clear subject line and a call to action.",
+        "task_type": "generation",
+        "depends_on": [
+          "estimate_cost",
+          "list_risks"
+        ],
+        "fused_from": []
+      }
+    ]
+  },
+  {
+    "request_id": 4,
+    "request": "- review the API design\n- review the database schema\n- review the auth flow\n- review the deployment scripts",
+    "attempts": 1,
+    "planning_s": 2.594443800044246,
+    "input_tokens": 1089,
+    "output_tokens": 530,
+    "num_tasks": 5,
+    "depth": 2,
+    "max_width": 4,
+    "tasks": [
+      {
+        "id": "review_api",
+        "instruction": "Review the API design. Assess endpoint naming, resource modeling, HTTP method and status code usage, versioning, error handling, pagination, and consistency. List concrete issues and recommendations.",
+        "task_type": "reasoning",
+        "depends_on": [],
+        "fused_from": []
+      },
+      {
+        "id": "review_schema",
+        "instruction": "Review the database schema. Assess normalization, primary and foreign keys, indexing, data types, constraints, naming conventions, and scalability concerns. List concrete issues and recommendations.",
+        "task_type": "reasoning",
+        "depends_on": [],
+        "fused_from": []
+      },
+      {
+        "id": "review_auth",
+        "instruction": "Review the auth flow. Assess authentication and authorization mechanisms, token handling, session management, password and credential storage, secret handling, and common vulnerabilities. List concrete issues and recommendations.",
+        "task_type": "reasoning",
+        "depends_on": [],
+        "fused_from": []
+      },
+      {
+        "id": "review_deploy",
+        "instruction": "Review the deployment scripts. Assess idempotency, error handling, rollback strategy, environment configuration and secrets handling, health checks, and security practices. List concrete issues and recommendations.",
+        "task_type": "reasoning",
+        "depends_on": [],
+        "fused_from": []
+      },
+      {
+        "id": "synthesize_review",
+        "instruction": "Combine the findings from the API design, database schema, auth flow, and deployment script reviews into a single consolidated review report. Group findings by area, prioritize by severity, and list the top recommended actions.",
+        "task_type": "synthesis",
+        "depends_on": [
+          "review_api",
+          "review_schema",
+          "review_auth",
+          "review_deploy"
+        ],
+        "fused_from": []
+      }
+    ]
+  },
+  {
+    "request_id": 5,
+    "request": "Compare PostgreSQL, MySQL and SQLite for a small analytics app, then recommend one",
+    "attempts": 1,
+    "planning_s": 3.203935800003819,
+    "input_tokens": 1092,
+    "output_tokens": 518,
+    "num_tasks": 4,
+    "depth": 2,
+    "max_width": 3,
+    "tasks": [
+      {
+        "id": "eval_postgresql",
+        "instruction": "Evaluate PostgreSQL for a small analytics application. Cover strengths and weaknesses for analytical queries (aggregations, window functions, JSON support, extensions), operational overhead, hosting options, scalability, and licensing.",
+        "task_type": "reasoning",
+        "depends_on": [],
+        "fused_from": []
+      },
+      {
+        "id": "eval_mysql",
+        "instruction": "Evaluate MySQL for a small analytics application. Cover strengths and weaknesses for analytical queries (aggregations, window functions, JSON support), operational overhead, hosting options, scalability, and licensing.",
+        "task_type": "reasoning",
+        "depends_on": [],
+        "fused_from": []
+      },
+      {
+        "id": "eval_sqlite",
+        "instruction": "Evaluate SQLite for a small analytics application. Cover strengths and weaknesses for analytical queries (aggregations, window functions, JSON support), concurrency limits, operational overhead, deployment model, scalability, and licensing.",
+        "task_type": "reasoning",
+        "depends_on": [],
+        "fused_from": []
+      },
+      {
+        "id": "recommend",
+        "instruction": "Using the evaluations of PostgreSQL, MySQL, and SQLite for a small analytics app, compare the three side by side on the key criteria (query capability, concurrency, operational overhead, scalability, cost) and recommend exactly one database, with a clear justification and the conditions under which the choice would change.",
+        "task_type": "synthesis",
+        "depends_on": [
+          "eval_postgresql",
+          "eval_mysql",
+          "eval_sqlite"
+        ],
+        "fused_from": []
+      }
+    ]
+  },
+  {
+    "request_id": 6,
+    "request": "Translate the abstract to French, Spanish and German",
+    "attempts": 1,
+    "planning_s": 2.097044499940239,
+    "input_tokens": 1075,
+    "output_tokens": 426,
+    "num_tasks": 4,
+    "depth": 2,
+    "max_width": 3,
+    "tasks": [
+      {
+        "id": "translate_french",
+        "instruction": "Translate the abstract provided in the user's request into French. Preserve meaning, technical terminology, and structure. If the abstract text itself is not included in the request, state that it is missing and ask for it.",
+        "task_type": "generation",
+        "depends_on": [],
+        "fused_from": []
+      },
+      {
+        "id": "translate_spanish",
+        "instruction": "Translate the abstract provided in the user's request into Spanish. Preserve meaning, technical terminology, and structure. If the abstract text itself is not included in the request, state that it is missing and ask for it.",
+        "task_type": "generation",
+        "depends_on": [],
+        "fused_from": []
+      },
+      {
+        "id": "translate_german",
+        "instruction": "Translate the abstract provided in the user's request into German. Preserve meaning, technical terminology, and structure. If the abstract text itself is not included in the request, state that it is missing and ask for it.",
+        "task_type": "generation",
+        "depends_on": [],
+        "fused_from": []
+      },
+      {
+        "id": "synthesize_translations",
+        "instruction": "Combine the French, Spanish, and German translations into a single response, clearly labeled by language. If any translation reported that the abstract text is missing, relay that request to the user clearly.",
+        "task_type": "synthesis",
+        "depends_on": [
+          "translate_french",
+          "translate_spanish",
+          "translate_german"
+        ],
+        "fused_from": []
+      }
+    ]
+  },
+  {
+    "request_id": 7,
+    "request": "Outline the history of the internet; then explain how TCP works; then write a quiz",
+    "attempts": 1,
+    "planning_s": 3.0578607000643387,
+    "input_tokens": 1084,
+    "output_tokens": 434,
+    "num_tasks": 4,
+    "depth": 2,
+    "max_width": 3,
+    "tasks": [
+      {
+        "id": "internet_history",
+        "instruction": "Outline the history of the internet, from its origins in the 1960s (e.g., ARPANET) through key milestones such as TCP/IP adoption, the creation of the World Wide Web, and commercialization, presented as a structured outline with dates.",
+        "task_type": "generation",
+        "depends_on": [],
+        "fused_from": []
+      },
+      {
+        "id": "explain_tcp",
+        "instruction": "Explain how TCP (Transmission Control Protocol) works, covering the three-way handshake, sequencing and acknowledgments, flow control, congestion control, and connection teardown, in clear and accurate terms.",
+        "task_type": "generation",
+        "depends_on": [],
+        "fused_from": []
+      },
+      {
+        "id": "write_quiz",
+        "instruction": "Write a quiz about the history of the internet and how TCP works. Include a mix of multiple-choice and short-answer questions, with an answer key at the end.",
+        "task_type": "generation",
+        "depends_on": [],
+        "fused_from": []
+      },
+      {
+        "id": "final_synthesis",
+        "instruction": "Combine the internet history outline, the TCP explanation, and the quiz into one cohesive document with clear section headings, in the order: history outline, TCP explanation, quiz.",
+        "task_type": "synthesis",
+        "depends_on": [
+          "internet_history",
+          "explain_tcp",
+          "write_quiz"
+        ],
+        "fused_from": []
+      }
+    ]
+  },
+  {
+    "request_id": 8,
+    "request": "Collect pricing for AWS, GCP and Azure GPUs, then compute the cheapest option for 100 hours",
+    "attempts": 1,
+    "planning_s": 3.7983543999725953,
+    "input_tokens": 1097,
+    "output_tokens": 682,
+    "num_tasks": 5,
+    "depth": 3,
+    "max_width": 3,
+    "tasks": [
+      {
+        "id": "aws_gpu_pricing",
+        "instruction": "Collect current on-demand pricing for GPU instances on AWS (e.g., p4d, p5, g5, g4dn families). For each instance type, report the GPU model, GPU count, and hourly price in USD, noting the region used.",
+        "task_type": "retrieval",
+        "depends_on": [],
+        "fused_from": []
+      },
+      {
+        "id": "gcp_gpu_pricing",
+        "instruction": "Collect current on-demand pricing for GPU instances on Google Cloud (e.g., A2, A3, G2 machine families and attachable GPUs such as T4, L4, A100, H100). For each configuration, report the GPU model, GPU count, and hourly price in USD, noting the region used.",
+        "task_type": "retrieval",
+        "depends_on": [],
+        "fused_from": []
+      },
+      {
+        "id": "azure_gpu_pricing",
+        "instruction": "Collect current on-demand pricing for GPU virtual machines on Microsoft Azure (e.g., NC, ND, NV series). For each VM size, report the GPU model, GPU count, and hourly price in USD, noting the region used.",
+        "task_type": "retrieval",
+        "depends_on": [],
+        "fused_from": []
+      },
+      {
+        "id": "cheapest_100h",
+        "instruction": "Using the AWS, GCP, and Azure GPU pricing collected, compare options with comparable GPU hardware (same GPU model and count) and compute the total cost for 100 hours of usage for each option. Identify the cheapest option per cloud and overall, and note any caveats such as region differences or comparability limits.",
+        "task_type": "reasoning",
+        "depends_on": [
+          "aws_gpu_pricing",
+          "gcp_gpu_pricing",
+          "azure_gpu_pricing"
+        ],
+        "fused_from": []
+      },
+      {
+        "id": "final_answer",
+        "instruction": "Combine the pricing data and the 100-hour cost comparison into a clear final answer: list the GPU pricing per cloud, state the cheapest option for 100 hours overall, and mention key caveats.",
+        "task_type": "synthesis",
+        "depends_on": [
+          "cheapest_100h"
+        ],
+        "fused_from": []
+      }
+    ]
+  },
+  {
+    "request_id": 9,
+    "request": "Explain the proof of the four colour theorem",
+    "attempts": 1,
+    "planning_s": 3.017818099935539,
+    "input_tokens": 1073,
+    "output_tokens": 227,
+    "num_tasks": 1,
+    "depth": 1,
+    "max_width": 1,
+    "tasks": [
+      {
+        "id": "explain_proof",
+        "instruction": "Explain the proof of the Four Colour Theorem in a clear, structured way. Cover the reduction to planar graph triangulations, the notion of unavoidable sets and reducible configurations, the discharging method used by Appel and Haken (1976), the role of computer verification of roughly 1,936 (later reduced to 633) configurations, and the simplified proof by Robertson, Sanders, Seymour and Thomas (1996). State the key ideas accessibly while noting where rigorous details are technical.",
+        "task_type": "generation",
+        "depends_on": [],
+        "fused_from": []
+      }
+    ]
+  }
+]

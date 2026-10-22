@@ -90,6 +90,66 @@ def _cmd_serve(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_live(settings: Settings, args: argparse.Namespace) -> int:
+    from dataclasses import replace  # noqa: PLC0415
+    from pathlib import Path  # noqa: PLC0415
+
+    from adaptive_scheduler.agent.planning import HeuristicPlanner, LLMPlanner  # noqa: PLC0415
+    from adaptive_scheduler.bench.live import LiveConfig, run_live  # noqa: PLC0415
+    from adaptive_scheduler.bench.live_report import analyse_live, write_live  # noqa: PLC0415
+    from adaptive_scheduler.cost.provider import ProviderProfile  # noqa: PLC0415
+    from adaptive_scheduler.llm import MockChatModel, create_chat_model  # noqa: PLC0415
+
+    try:
+        provider = settings.resolve_provider()
+    except ConfigurationError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 2
+    cfg = LiveConfig(reps=args.reps, budget_usd=args.budget)
+    if args.requests:
+        cfg = replace(cfg, requests=cfg.requests[: args.requests])
+    llm = create_chat_model(settings)
+    if provider is LLMProvider.ANTHROPIC:
+        model, scale = settings.anthropic_model, 1.0
+        prior = ProviderProfile.for_model(model, max_concurrency=settings.max_concurrency)
+        planner = LLMPlanner(llm, cfg.max_plan_tasks)
+    else:
+        model, scale = "mock", settings.mock_time_scale
+        llm = (
+            llm.model_copy(update={"time_scale": scale}) if isinstance(llm, MockChatModel) else llm
+        )
+        prior = ProviderProfile(max_concurrency=settings.max_concurrency)
+        planner = HeuristicPlanner(llm, cfg.max_plan_tasks)  # type: ignore[assignment]
+    print(
+        f"Live validation on {model}: {len(cfg.requests)} requests x {len(cfg.strategies)} "
+        f"strategies x {cfg.reps} reps, budget ${cfg.budget_usd:.2f}",
+        file=sys.stderr,
+    )
+    estimator = None
+    if args.warm_start:
+        from adaptive_scheduler.bench.live_replay import load_live, warm_estimator  # noqa: PLC0415
+
+        estimator = warm_estimator(load_live(Path(args.warm_start)), prior)
+        print(
+            f"Warm-started estimator from {estimator.observations} recorded calls", file=sys.stderr
+        )
+    result = asyncio.run(
+        run_live(
+            cfg,
+            llm,
+            planner,
+            prior,
+            time_scale=scale,
+            estimator=estimator,
+            progress=lambda m: print("  " + m, file=sys.stderr),
+        )
+    )
+    analysis = analyse_live(result, prior)
+    write_live(result, analysis, Path(args.out), model)
+    print(f"Spent ~${result.spent_usd:.4f}; report: {Path(args.out) / 'LIVE_RESULTS.md'}")
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="apsched", description=__doc__)
     parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
@@ -118,6 +178,17 @@ def build_parser() -> argparse.ArgumentParser:
     bench.add_argument("--seed", type=int, default=0)
     bench.add_argument("--no-plots", action="store_true", help="skip matplotlib figures")
 
+    live = sub.add_parser("live-bench", help="validate the scheduler against the configured LLM")
+    live.add_argument("--reps", type=int, default=3)
+    live.add_argument(
+        "--budget", type=float, default=2.0, help="stop once spend reaches this (USD)"
+    )
+    live.add_argument("--requests", type=int, default=0, help="use only the first N requests")
+    live.add_argument("--out", default="docs/results/live")
+    live.add_argument(
+        "--warm-start", help="calibrate first on the calls recorded in this directory"
+    )
+
     serve = sub.add_parser("serve", help="run the HTTP service")
     serve.add_argument("--host", default="127.0.0.1")
     serve.add_argument("--port", type=int, default=8080)
@@ -136,6 +207,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return _cmd_run(settings, args)
     if args.command == "bench":
         return _cmd_bench(args)
+    if args.command == "live-bench":
+        return _cmd_live(settings, args)
     if args.command == "serve":  # pragma: no cover - starts a blocking server
         return _cmd_serve(args)
     return 1  # pragma: no cover - argparse enforces a valid command

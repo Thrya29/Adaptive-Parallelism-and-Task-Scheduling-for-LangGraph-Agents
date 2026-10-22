@@ -1,0 +1,278 @@
+{
+  "spent_usd": 0.5199714000000001,
+  "stopped_early": null,
+  "requests": 10,
+  "plans": [
+    {
+      "request_id": 0,
+      "request": "Research the EV markets of India, China and Germany, then compare their growth and risks, then write a short investment summary",
+      "attempts": 1,
+      "planning_s": 3.6837194999679923,
+      "input_tokens": 1093,
+      "output_tokens": 529,
+      "num_tasks": 5,
+      "depth": 3,
+      "max_width": 3
+    },
+    {
+      "request_id": 1,
+      "request": "Summarize the attached quarterly report",
+      "attempts": 1,
+      "planning_s": 1.322440700023435,
+      "input_tokens": 1071,
+      "output_tokens": 139,
+      "num_tasks": 1,
+      "depth": 1,
+      "max_width": 1
+    },
+    {
+      "request_id": 2,
+      "request": "Find the population, GDP and capital of France, Japan, Brazil and Kenya, then rank them",
+      "attempts": 1,
+      "planning_s": 2.675143500091508,
+      "input_tokens": 1091,
+      "output_tokens": 401,
+      "num_tasks": 5,
+      "depth": 2,
+      "max_width": 4
+    },
+    {
+      "request_id": 3,
+      "request": "Draft a project plan, then estimate its cost, then list the main risks, then write an email",
+      "attempts": 1,
+      "planning_s": 3.05735120002646,
+      "input_tokens": 1086,
+      "output_tokens": 539,
+      "num_tasks": 4,
+      "depth": 3,
+      "max_width": 2
+    },
+    {
+      "request_id": 4,
+      "request": "- review the API design\n- review the database schema\n- review the auth flow\n- review the deployment scripts",
+      "attempts": 1,
+      "planning_s": 2.594443800044246,
+      "input_tokens": 1089,
+      "output_tokens": 530,
+      "num_tasks": 5,
+      "depth": 2,
+      "max_width": 4
+    },
+    {
+      "request_id": 5,
+      "request": "Compare PostgreSQL, MySQL and SQLite for a small analytics app, then recommend one",
+      "attempts": 1,
+      "planning_s": 3.203935800003819,
+      "input_tokens": 1092,
+      "output_tokens": 518,
+      "num_tasks": 4,
+      "depth": 2,
+      "max_width": 3
+    },
+    {
+      "request_id": 6,
+      "request": "Translate the abstract to French, Spanish and German",
+      "attempts": 1,
+      "planning_s": 2.097044499940239,
+      "input_tokens": 1075,
+      "output_tokens": 426,
+      "num_tasks": 4,
+      "depth": 2,
+      "max_width": 3
+    },
+    {
+      "request_id": 7,
+      "request": "Outline the history of the internet; then explain how TCP works; then write a quiz",
+      "attempts": 1,
+      "planning_s": 3.0578607000643387,
+      "input_tokens": 1084,
+      "output_tokens": 434,
+      "num_tasks": 4,
+      "depth": 2,
+      "max_width": 3
+    },
+    {
+      "request_id": 8,
+      "request": "Collect pricing for AWS, GCP and Azure GPUs, then compute the cheapest option for 100 hours",
+      "attempts": 1,
+      "planning_s": 3.7983543999725953,
+      "input_tokens": 1097,
+      "output_tokens": 682,
+      "num_tasks": 5,
+      "depth": 3,
+      "max_width": 3
+    },
+    {
+      "request_id": 9,
+      "request": "Explain the proof of the four colour theorem",
+      "attempts": 1,
+      "planning_s": 3.017818099935539,
+      "input_tokens": 1073,
+      "output_tokens": 227,
+      "num_tasks": 1,
+      "depth": 1,
+      "max_width": 1
+    }
+  ],
+  "runs": 120,
+  "calls": 455,
+  "strategies": [
+    {
+      "strategy": "adaptive",
+      "runs": 30,
+      "mean_latency_s": 22.44734776998715,
+      "p95_latency_s": 42.916093999985605,
+      "mean_cost_usd": 0.0042706,
+      "mean_calls": 3.7666666666666666,
+      "success_rate": 1.0,
+      "speedup": 1.6623099735001698,
+      "speedup_lo": 1.5344270705420773,
+      "speedup_hi": 1.802516107009079
+    },
+    {
+      "strategy": "sequential",
+      "runs": 30,
+      "mean_latency_s": 37.31445007667644,
+      "p95_latency_s": 74.41947570000775,
+      "mean_cost_usd": 0.004214236666666666,
+      "mean_calls": 3.8,
+      "success_rate": 1.0,
+      "speedup": 1.0,
+      "speedup_lo": 1.0,
+      "speedup_hi": 1.0
+    },
+    {
+      "strategy": "static_parallel",
+      "runs": 30,
+      "mean_latency_s": 23.49238587000485,
+      "p95_latency_s": 45.177847400074825,
+      "mean_cost_usd": 0.004355303333333334,
+      "mean_calls": 3.8,
+      "success_rate": 1.0,
+      "speedup": 1.5883635780186822,
+      "speedup_lo": 1.476122796040892,
+      "speedup_hi": 1.7091391480819391
+    },
+    {
+      "strategy": "eager_parallel",
+      "runs": 30,
+      "mean_latency_s": 23.724501946684903,
+      "p95_latency_s": 44.876993100042455,
+      "mean_cost_usd": 0.0043823199999999994,
+      "mean_calls": 3.8,
+      "success_rate": 1.0,
+      "speedup": 1.5728233267249052,
+      "speedup_lo": 1.4530996867009793,
+      "speedup_hi": 1.7068857273417717
+    }
+  ],
+  "prediction": {
+    "prior_model": {
+      "n": 40,
+      "aggregate_bias": 0.3388051087554933,
+      "p50_coverage": 0.575,
+      "p95_coverage": 0.925,
+      "mape": 1.2827021308681028
+    },
+    "calibrated_model": {
+      "n": 80,
+      "aggregate_bias": 0.536217735978062,
+      "p50_coverage": 0.7375,
+      "p95_coverage": 0.975,
+      "mape": 1.6402305283669527
+    }
+  },
+  "ranking": {
+    "per_request": [
+      {
+        "request_id": 0,
+        "spearman": 0.7999999999999999,
+        "predicted_best": "adaptive",
+        "actual_best": "adaptive",
+        "actual_spread": 0.6880739209020658
+      },
+      {
+        "request_id": 2,
+        "spearman": 0.19999999999999998,
+        "predicted_best": "static_parallel",
+        "actual_best": "eager_parallel",
+        "actual_spread": 1.0495346446080485
+      },
+      {
+        "request_id": 3,
+        "spearman": 0.19999999999999998,
+        "predicted_best": "eager_parallel",
+        "actual_best": "static_parallel",
+        "actual_spread": 0.3854420357076134
+      },
+      {
+        "request_id": 4,
+        "spearman": 0.7999999999999999,
+        "predicted_best": "adaptive",
+        "actual_best": "adaptive",
+        "actual_spread": 1.7740793492722915
+      },
+      {
+        "request_id": 5,
+        "spearman": 0.39999999999999997,
+        "predicted_best": "eager_parallel",
+        "actual_best": "adaptive",
+        "actual_spread": 0.8830645277704938
+      },
+      {
+        "request_id": 6,
+        "spearman": 0.39999999999999997,
+        "predicted_best": "eager_parallel",
+        "actual_best": "adaptive",
+        "actual_spread": 0.7933774320329976
+      },
+      {
+        "request_id": 7,
+        "spearman": 0.39999999999999997,
+        "predicted_best": "eager_parallel",
+        "actual_best": "static_parallel",
+        "actual_spread": 0.7542921109815759
+      },
+      {
+        "request_id": 8,
+        "spearman": 0.39999999999999997,
+        "predicted_best": "static_parallel",
+        "actual_best": "adaptive",
+        "actual_spread": 0.623117303546135
+      }
+    ],
+    "mean_spearman": 0.44999999999999996,
+    "top1_agreement": 0.25
+  },
+  "calibration": {
+    "prior": {
+      "ttft_s": 0.6,
+      "decode_tps": 80.0
+    },
+    "fitted": {
+      "ttft_s": 0.694723302806893,
+      "decode_tps": 184.24457534934444
+    },
+    "observations": 455,
+    "output_tokens_by_type": {
+      "retrieval": 1516.9084370098003,
+      "reasoning": 2966.482010657559,
+      "tool_call": 150.0,
+      "generation": 2600.162623624768,
+      "synthesis": 2748.933934650382,
+      "composite": 800.0
+    },
+    "success_by_type": {
+      "retrieval": 0.9989999386443258,
+      "reasoning": 0.998999960478507,
+      "tool_call": 0.97,
+      "generation": 0.9989999063518655,
+      "synthesis": 0.9989953812305843,
+      "composite": 0.95
+    },
+    "call_mape_prior": 1.6850260390257952,
+    "call_mape_fitted": 0.28787598725928054,
+    "contention_per_extra_call": 0.03374273895442261,
+    "median_tokens_per_s_end_to_end": 190.99761221362573
+  }
+}

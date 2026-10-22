@@ -1,0 +1,23 @@
+{
+  "prior_model": {
+    "n": 40,
+    "aggregate_bias": 0.15354599469161623,
+    "p50_coverage": 0.45,
+    "p95_coverage": 0.85,
+    "mape": 1.1246143794765582
+  },
+  "calibrated_model": {
+    "n": 80,
+    "aggregate_bias": 0.014408167134497774,
+    "p50_coverage": 0.4,
+    "p95_coverage": 0.8875,
+    "mape": 1.035904592978477
+  },
+  "late_runs": {
+    "n": 40,
+    "aggregate_bias": 0.009554438136407661,
+    "p50_coverage": 0.4,
+    "p95_coverage": 0.9,
+    "mape": 1.0261720141161619
+  }
+}

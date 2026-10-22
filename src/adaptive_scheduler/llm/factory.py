@@ -23,6 +23,7 @@ def create_chat_model(settings: Settings) -> BaseChatModel:
         return ChatAnthropic(
             model=settings.anthropic_model,
             api_key=settings.anthropic_api_key,
+            max_tokens=settings.anthropic_max_tokens,
             max_retries=0,  # retries are owned by the executor so they are counted and scheduled
         )
     return MockChatModel(seed=settings.mock_seed)

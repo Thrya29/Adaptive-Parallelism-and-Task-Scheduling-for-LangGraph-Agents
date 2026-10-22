@@ -23,6 +23,15 @@ from dataclasses import dataclass
 
 import numpy as np
 
+# USD per million (input, output) tokens, Anthropic first-party API, as of 2026-10.
+# Haiku 5.5 prices apply to prompts up to 100K tokens. Unknown models fall back to the profile
+# defaults, which are illustrative values for simulation.
+MODEL_PRICES_USD_PER_MTOK: dict[str, tuple[float, float]] = {
+    "claude-haiku-5-5": (0.10, 0.50),
+    "claude-sonnet-5-5": (2.00, 10.00),
+    "claude-opus-5-5": (4.00, 20.00),
+}
+
 
 @dataclass(frozen=True, slots=True)
 class ProviderProfile:
@@ -88,6 +97,16 @@ class ProviderProfile:
         tail = self.tail_multiplier if rng.random() < self.tail_prob else 1.0
         slowdown = 1 + self.contention * max(active_calls - 1, 0)
         return self.base_latency(input_tokens, output_tokens) * noise * tail * slowdown
+
+    @classmethod
+    def for_model(cls, model: str, **overrides: float) -> ProviderProfile:
+        """Profile with the model's published prices (other fields default / overridden)."""
+        prices = MODEL_PRICES_USD_PER_MTOK.get(model)
+        fields: dict[str, float] = dict(overrides)
+        if prices is not None:
+            fields.setdefault("usd_per_mtok_in", prices[0])
+            fields.setdefault("usd_per_mtok_out", prices[1])
+        return cls(**fields)  # type: ignore[arg-type]
 
     def cost_usd(self, input_tokens: float, output_tokens: float) -> float:
         return (input_tokens * self.usd_per_mtok_in + output_tokens * self.usd_per_mtok_out) / 1e6

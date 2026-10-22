@@ -45,6 +45,7 @@ class Settings(BaseSettings):
         validation_alias=AliasChoices("ANTHROPIC_API_KEY", "APSCHED_ANTHROPIC_API_KEY"),
     )
     anthropic_model: str = "claude-haiku-5-5"
+    anthropic_max_tokens: int = Field(default=16_000, ge=256, le=128_000)
 
     mock_seed: int = Field(default=0, description="Seed for the deterministic mock LLM.")
     mock_time_scale: float = Field(

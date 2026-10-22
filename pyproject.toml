@@ -78,6 +78,8 @@ ignore = [
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["S101", "PLR2004", "S311"]
+# Markdown table templates: splitting each row across lines would hurt readability.
+"src/adaptive_scheduler/bench/live_report.py" = ["E501"]
 
 [tool.mypy]
 python_version = "3.11"

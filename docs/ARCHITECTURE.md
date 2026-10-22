@@ -52,11 +52,23 @@ from concurrent calls. The provider serves at most `C` calls at once; excess cal
 rate-limit penalty (HTTP 429 + back-off). A task's prompt includes the system prompt, shared
 context, its instruction and **the outputs of its dependencies**, so fan-in tasks are expensive.
 
-The `CostEstimator` calibrates this online: EWMA of output tokens and success rate per task type
-(seeded with priors), and a decayed **weighted** least-squares fit of `ttft` and decode speed.
-Weights are `1 / expected_latency²` because latency noise is multiplicative; ordinary least
-squares let long, noisy generations dominate the intercept (a test caught this: OLS estimated
-1.39 s for a true 1.2 s overhead).
+The `CostEstimator` calibrates this online, modelling *latency given tokens* and *output
+length* separately - live measurements showed real latency is close to deterministic given the
+output length (corr 0.93), so run-to-run variability lives in how long the output is:
+
+* a decayed **weighted** least-squares fit of `ttft` and decode speed on raw latencies (weights
+  `1 / expected_latency²` because noise is multiplicative; ordinary least squares let long, noisy
+  generations dominate the intercept), plus the measured spread of the multiplicative residual,
+  which replaces the prior's assumed heavy tail;
+* per task type, a decayed mean (with a prior pseudo-count) and log-spread of output length, so the
+  simulator samples realistic lengths and one long output cannot swing the estimate;
+* an EWMA of success rate per type.
+
+Every fitted quantity is shrunk towards the prior with weight `n / (n + prior_strength)` on the
+*total* number of observations. The first version used the decayed count, which caps at
+`1 / (1 − decay)`; the live run showed a 2.6×-too-slow prior then keeps ~13% weight forever
+(+54% aggregate over-prediction). The revised estimator measured −2.4% bias on fresh real calls.
+See [REPORT.md](REPORT.md) §6.
 
 ### 3.4 Graph analyzer
 * **Critical path** — longest path under expected latency via DP over the topological order.

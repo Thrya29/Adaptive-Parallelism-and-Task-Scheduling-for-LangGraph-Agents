@@ -26,8 +26,9 @@ from langchain_core.messages import HumanMessage, SystemMessage
 from pydantic import BaseModel, Field
 
 from adaptive_scheduler.agent import prompts
-from adaptive_scheduler.cost.profiles import TaskProfile, estimate_tokens
+from adaptive_scheduler.cost.profiles import OUTPUT_TOKEN_PRIORS, TaskProfile, estimate_tokens
 from adaptive_scheduler.events import AgentEvent, EventSink, EventType, emit
+from adaptive_scheduler.graph.model import TaskType
 from adaptive_scheduler.scheduling.ready_queue import ReadyQueue
 from adaptive_scheduler.simulation.engine import ExecutionConfig, Mode, PreparedPlan, RetryPolicy
 
@@ -93,6 +94,30 @@ class ExecutionReport(BaseModel):
             active += delta
             peak = max(peak, active)
         return peak
+
+
+def call_kwargs_for(llm: BaseChatModel) -> CallKwargs | None:
+    """Per-call extras for a model. Only the mock understands the output-length hint; a real API
+    would reject the unknown parameter.
+
+    The hint is the task type's *fixed* prior length, not the estimator's current belief: the mock
+    plays the role of the real model, whose true output lengths do not depend on what the scheduler
+    believes. (Feeding beliefs back into the "truth" made estimates drift like a random walk.)
+    """
+    from adaptive_scheduler.llm.mock import MockChatModel  # noqa: PLC0415 - avoid import cycle
+
+    if not isinstance(llm, MockChatModel):
+        return None
+
+    def hint(p: TaskProfile) -> dict[str, Any]:
+        tokens = (
+            p.output_tokens
+            if p.task_type is TaskType.COMPOSITE
+            else OUTPUT_TOKEN_PRIORS[p.task_type]
+        )
+        return {"expected_output_tokens": round(tokens)}
+
+    return hint
 
 
 class TaskExecutor:
