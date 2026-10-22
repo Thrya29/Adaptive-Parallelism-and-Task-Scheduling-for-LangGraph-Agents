@@ -115,7 +115,7 @@ import asyncio
 from adaptive_scheduler.agent import AdaptiveAgent, Strategy
 from adaptive_scheduler.config import Settings
 
-agent = AdaptiveAgent.from_settings(Settings())       # mock or Anthropic, per your settings
+agent = AdaptiveAgent.from_settings(Settings())  # mock or Anthropic, per your settings
 result = asyncio.run(agent.arun("your request", strategy=Strategy.ADAPTIVE))
 print(result.answer, result.metrics, result.decision.config_name)
 ```
