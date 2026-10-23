@@ -52,6 +52,13 @@ dev = [
     "mypy>=1.13,<3",
     "pre-commit>=4,<5",
 ]
+# Rebuild the docs media (screenshots, GIF, videos): python scripts/make_media.py
+media = [
+    "imageio-ffmpeg>=0.5,<1",
+    "httpx>=0.27,<1",
+    "pygments>=2.17,<3",
+    "pillow>=10,<14",
+]
 all = ["adaptive-scheduler[anthropic,api,observability,experiments]"]
 
 [project.scripts]
@@ -78,6 +85,8 @@ ignore = [
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["S101", "PLR2004", "S311"]
+# Media tooling deliberately shells out to a headless browser and ffmpeg.
+"scripts/**" = ["S603", "S607", "E501", "PLR0913", "PLR0917", "PLC0415", "E402", "S101", "RUF001"]
 # Markdown table templates: splitting each row across lines would hurt readability.
 "src/adaptive_scheduler/bench/live_report.py" = ["E501"]
 

@@ -23,9 +23,11 @@ at ``1 / (1 - decay)``, so a bad prior kept ~13% weight forever - the live run e
 
 from __future__ import annotations
 
+import csv
 import math
 from collections.abc import Mapping
 from dataclasses import dataclass, field, replace
+from pathlib import Path
 
 from adaptive_scheduler.cost.profiles import OUTPUT_TOKEN_PRIORS, SUCCESS_PRIORS
 from adaptive_scheduler.cost.provider import ProviderProfile
@@ -212,6 +214,25 @@ class CostEstimator:
             noise_sigma=noise,
             output_tokens_sigma=sigma_out,
         )
+
+    def observe_log(self, path: Path) -> int:
+        """Calibrate from a recorded call log (``calls.csv`` written by ``apsched live-bench``, or
+        a directory containing one). Returns the number of calls observed."""
+        path = path / "calls.csv" if path.is_dir() else path
+        count = 0
+        with path.open(encoding="utf-8") as fh:
+            for row in csv.DictReader(fh):
+                task_type = TaskType(row["task_type"])
+                self.observe(
+                    task_type,
+                    latency_s=float(row["latency_s"]),
+                    input_tokens=float(row["input_tokens"]),
+                    output_tokens=float(row["output_tokens"]),
+                    succeeded=row["status"] == "completed",
+                    update_type_stats=task_type is not TaskType.COMPOSITE,
+                )
+                count += 1
+        return count
 
     def output_token_estimates(self) -> Mapping[TaskType, float]:
         return dict(self.output_tokens)

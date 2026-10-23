@@ -1,0 +1,599 @@
+{
+ "info": {
+  "version": "0.1.0",
+  "llm_provider": "anthropic",
+  "model": "claude-haiku-5-5",
+  "mock_time_scale": 1.0,
+  "max_concurrent_runs": 8,
+  "max_request_chars": 8000,
+  "run_timeout_s": 300.0,
+  "strategies": [
+   "adaptive",
+   "sequential",
+   "static_parallel",
+   "eager_parallel"
+  ]
+ },
+ "request": "Research the EV markets of India, China and Germany, then compare their growth and risks, then write a short investment summary",
+ "strategy": "adaptive",
+ "events": [
+  {
+   "type": "run_started",
+   "run_id": "a93faea272e543f5be48a1957a56b86b",
+   "ts": 1792670347.7157888,
+   "data": {
+    "request": "Research the EV markets of India, China and Germany, then compare their growth and risks, then write a short investment summary",
+    "strategy": "adaptive"
+   }
+  },
+  {
+   "type": "plan_ready",
+   "run_id": "a93faea272e543f5be48a1957a56b86b",
+   "ts": 1792670351.2475474,
+   "data": {
+    "attempts": 1,
+    "fallback": false,
+    "errors": [],
+    "tasks": [
+     {
+      "id": "research_india_ev",
+      "task_type": "retrieval",
+      "depends_on": [],
+      "instruction": "Research the current electric vehicle (EV) market in India: sales volumes, market share, growth trends, key policies and subsidies (e.g., FAME, PLI), major players, charging infrastructure, and key risks."
+     },
+     {
+      "id": "research_china_ev",
+      "task_type": "retrieval",
+      "depends_on": [],
+      "instruction": "Research the current electric vehicle (EV) market in China: sales volumes, market share, growth trends, key policies and subsidies, major players, charging infrastructure, export dynamics, and key risks."
+     },
+     {
+      "id": "research_germany_ev",
+      "task_type": "retrieval",
+      "depends_on": [],
+      "instruction": "Research the current electric vehicle (EV) market in Germany: sales volumes, market share, growth trends, key policies and incentives, major players, charging infrastructure, and key risks."
+     },
+     {
+      "id": "compare_growth_risks",
+      "task_type": "reasoning",
+      "depends_on": [
+       "research_india_ev",
+       "research_china_ev",
+       "research_germany_ev"
+      ],
+      "instruction": "Using the research on India, China and Germany EV markets, compare their growth trajectories (historical and projected) and their risk profiles (policy, competition, infrastructure, macroeconomic, geopolitical). Present a structured side-by-side comparison."
+     },
+     {
+      "id": "investment_summary",
+      "task_type": "synthesis",
+      "depends_on": [
+       "compare_growth_risks"
+      ],
+      "instruction": "Using the growth and risk comparison, write a short investment summary covering the attractiveness of the India, China and Germany EV markets, key opportunities and risks for investors, and a clear overall takeaway. Note that this is analysis, not personalized financial advice."
+     }
+    ]
+   }
+  },
+  {
+   "type": "decision",
+   "run_id": "a93faea272e543f5be48a1957a56b86b",
+   "ts": 1792670351.31649,
+   "data": {
+    "strategy": "adaptive",
+    "config_name": "adaptive[k=3,fused]",
+    "workers": 3,
+    "fuse": true,
+    "mode": "list",
+    "policy": "critical_path",
+    "predicted_latency_s": 33.19438158809943,
+    "predicted_p95_s": 73.89360227694175,
+    "selection_time_s": 0.07112450001295656,
+    "total_work_s": 51.11014838101586,
+    "span_s": 34.08102814944996,
+    "parallelism": 1.4996656837021136,
+    "candidates": [
+     {
+      "name": "adaptive[k=1]",
+      "workers": 1,
+      "fuse": false,
+      "mean_latency_s": 46.04109237164509,
+      "p95_latency_s": 86.43833041609184,
+      "cost_usd": 0.004920115879587792,
+      "calls": 5.0,
+      "success_rate": 1.0,
+      "score": 89.7522691676498
+     },
+     {
+      "name": "adaptive[k=1,fused]",
+      "workers": 1,
+      "fuse": true,
+      "mean_latency_s": 40.592902953194205,
+      "p95_latency_s": 81.36307609982512,
+      "cost_usd": 0.004303051260289287,
+      "calls": 4.03125,
+      "success_rate": 1.0,
+      "score": 81.7047461291357
+     },
+     {
+      "name": "adaptive[k=2]",
+      "workers": 2,
+      "fuse": false,
+      "mean_latency_s": 39.95275561139064,
+      "p95_latency_s": 81.0240196970964,
+      "cost_usd": 0.004920115879587792,
+      "calls": 5.0,
+      "success_rate": 1.0,
+      "score": 80.95677704789763
+     },
+     {
+      "name": "adaptive[k=2,fused]",
+      "workers": 2,
+      "fuse": true,
+      "mean_latency_s": 34.50456619293975,
+      "p95_latency_s": 73.89360227694175,
+      "cost_usd": 0.004303051260289287,
+      "calls": 4.03125,
+      "success_rate": 1.0,
+      "score": 71.88167245743955
+     },
+     {
+      "name": "adaptive[k=3]",
+      "workers": 3,
+      "fuse": false,
+      "mean_latency_s": 38.64257100655032,
+      "p95_latency_s": 78.62934587667958,
+      "cost_usd": 0.004920115879587792,
+      "calls": 5.0,
+      "success_rate": 1.0,
+      "score": 78.4492555328489
+     },
+     {
+      "name": "adaptive[k=3,fused]",
+      "workers": 3,
+      "fuse": true,
+      "mean_latency_s": 33.19438158809943,
+      "p95_latency_s": 73.89360227694175,
+      "cost_usd": 0.004303051260289287,
+      "calls": 4.03125,
+      "success_rate": 1.0,
+      "score": 70.57148785259923
+     }
+    ],
+    "groups": {
+     "research_india_ev": [
+      "research_india_ev"
+     ],
+     "research_china_ev": [
+      "research_china_ev"
+     ],
+     "research_germany_ev": [
+      "research_germany_ev"
+     ],
+     "fused:compare_growth_risks..investment_summary": [
+      "compare_growth_risks",
+      "investment_summary"
+     ]
+    }
+   }
+  },
+  {
+   "type": "task_started",
+   "run_id": "a93faea272e543f5be48a1957a56b86b",
+   "ts": 1792670351.3245454,
+   "data": {
+    "task_id": "research_india_ev",
+    "task_type": "retrieval",
+    "inputs": []
+   }
+  },
+  {
+   "type": "task_started",
+   "run_id": "a93faea272e543f5be48a1957a56b86b",
+   "ts": 1792670351.3245454,
+   "data": {
+    "task_id": "research_china_ev",
+    "task_type": "retrieval",
+    "inputs": []
+   }
+  },
+  {
+   "type": "task_started",
+   "run_id": "a93faea272e543f5be48a1957a56b86b",
+   "ts": 1792670351.3245454,
+   "data": {
+    "task_id": "research_germany_ev",
+    "task_type": "retrieval",
+    "inputs": []
+   }
+  },
+  {
+   "type": "task_finished",
+   "run_id": "a93faea272e543f5be48a1957a56b86b",
+   "ts": 1792670369.5401163,
+   "data": {
+    "task_id": "research_germany_ev",
+    "task_type": "retrieval",
+    "status": "completed",
+    "attempts": 1,
+    "duration_s": 18.21751729992684,
+    "input_tokens": 213,
+    "output_tokens": 3247,
+    "error": null
+   }
+  },
+  {
+   "type": "task_finished",
+   "run_id": "a93faea272e543f5be48a1957a56b86b",
+   "ts": 1792670371.5489254,
+   "data": {
+    "task_id": "research_china_ev",
+    "task_type": "retrieval",
+    "status": "completed",
+    "attempts": 1,
+    "duration_s": 20.224556900095195,
+    "input_tokens": 217,
+    "output_tokens": 3659,
+    "error": null
+   }
+  },
+  {
+   "type": "task_finished",
+   "run_id": "a93faea272e543f5be48a1957a56b86b",
+   "ts": 1792670374.0710936,
+   "data": {
+    "task_id": "research_india_ev",
+    "task_type": "retrieval",
+    "status": "completed",
+    "attempts": 1,
+    "duration_s": 22.75252969993744,
+    "input_tokens": 223,
+    "output_tokens": 4174,
+    "error": null
+   }
+  },
+  {
+   "type": "task_started",
+   "run_id": "a93faea272e543f5be48a1957a56b86b",
+   "ts": 1792670374.0789137,
+   "data": {
+    "task_id": "fused:compare_growth_risks..investment_summary",
+    "task_type": "composite",
+    "inputs": [
+     "research_india_ev",
+     "research_china_ev",
+     "research_germany_ev"
+    ]
+   }
+  },
+  {
+   "type": "task_finished",
+   "run_id": "a93faea272e543f5be48a1957a56b86b",
+   "ts": 1792670391.829912,
+   "data": {
+    "task_id": "fused:compare_growth_risks..investment_summary",
+    "task_type": "composite",
+    "status": "completed",
+    "attempts": 1,
+    "duration_s": 17.752591699943878,
+    "input_tokens": 7204,
+    "output_tokens": 3617,
+    "error": null
+   }
+  },
+  {
+   "type": "run_finished",
+   "run_id": "a93faea272e543f5be48a1957a56b86b",
+   "ts": 1792670391.8340564,
+   "data": {
+    "strategy": "adaptive",
+    "config": "adaptive[k=3,fused]",
+    "metrics": {
+     "wall_clock_s": 44.117382999975234,
+     "planning_s": 3.51097230007872,
+     "selection_s": 0.07212310004979372,
+     "execution_s": 40.506735599949025,
+     "synthesis_s": 2.1999934688210487e-05,
+     "model_calls": 5,
+     "input_tokens": 8950,
+     "output_tokens": 15276,
+     "cost_usd": 0.008533,
+     "success": true,
+     "plan_attempts": 1,
+     "plan_fallback": false,
+     "tasks_planned": 5,
+     "tasks_executed": 4,
+     "peak_concurrency": 3
+    }
+   }
+  },
+  {
+   "type": "result",
+   "ts": 1792670391.8340564,
+   "data": {
+    "run_id": "a93faea272e543f5be48a1957a56b86b",
+    "request": "Research the EV markets of India, China and Germany, then compare their growth and risks, then write a short investment summary",
+    "answer": "# EV Markets: India, China, and Germany\n\n*All figures come from the prior research tasks, which relied on training knowledge without live data. They are approximate and should be verified against Vahan/SIAM (India), CAAM/CPCA/EVCIPA (China), and KBA/BNetzA (Germany) before use.*\n\n## Part 1: Growth and Risk Comparison\n\n### 1A. Growth Trajectories\n\n| Dimension | India | China | Germany |\n|---|---|---|---|\n| **Current scale** | E-PV ~100k units (CY2024); e-2W ~1.1\u20131.2m and e-3W ~0.7m+ (FY25) | ~12.9m NEVs sold in 2024; ~16m in 2025 (approx.) | ~380k BEVs in 2024; BEV share ~13.5% |\n| **Penetration (latest)** | E-PV ~2.5\u20134%; e-2W ~6%; e-3W ~50\u201360% | NEV ~41% (2024); ~45\u201350%+ (2025, moderate confidence) | BEV ~13.5% (2024); ~16\u201320% in some 2025 months (partial) |\n| **Historical growth** | Fast from a low base; e-2W/3W strong since 2022 with a dip after the 2022 subsidy and battery-fire disruptions; e-PV accelerated in 2024\u201325 | Very fast: NEV +35% in 2024; growth slowed to a lower positive rate in 2025 | Volatile: peak of ~524k BEVs in 2023, then about \u221227% in 2024 after subsidies ended |\n| **Growth shape** | Low base, rising trajectory, with segments at different stages | Maturing: subsidy-driven to market-driven | Stop-start, policy-driven cycles |\n| **Projected direction** (qualitative; no quantified forecasts in the research) | Structurally high headroom as penetration is low; pace depends on PM E-DRIVE taper and affordability | Continued growth but slowing; 2026\u201327 tax change (exemption replaced by a halved rate) may dampen demand after 2025 pull-forward | Possible recovery from 2026 income-based subsidy (~\u20ac3bn budget reported; details unverified); long-run path tied to the EU 2035 rule, which is under debate |\n| **Main growth drivers** | Low penetration, price-sensitive segments, 2W/3W electrification, localization incentives (PLI, ACC PLI) | Scale, LFP battery cost leadership, NEV dual-credit policy, product breadth, exports | EU CO2 targets, new subsidy, company-car tax benefits, Chinese budget EV entrants |\n\n### 1B. Risk Profiles\n\nRatings are analytical judgments based on the research summaries (L = low, M = medium, H = high risk).\n\n| Risk Category | India | China | Germany |\n|---|---|---|---|\n| **Policy** | **H**: subsidy taper (FAME II lapsed, PM E-DRIVE phasing down); PLI delays; state-level variation | **M**: stable national direction, but the 2026 tax change, trade-in fund volatility, and 2025 \"anti-involution\" rules add uncertainty | **H**: court-driven budget reversal; subsidy stop-start; possible softening of 2035 target |\n| **Competition** | **H**: rapid share shifts in 2W (Ola lost ground to TVS, Bajaj, Ather, Hero); heavy price competition; Tata's car share declining | **H**: severe price war; overcapacity; consolidation and failures (e.g., Neta bankruptcy); thin margins | **H**: Chinese brands (BYD, MG, Xpeng) entering with budget BEVs and PHEVs; pressure on German OEMs |\n| **Infrastructure** | **H**: ~25\u201330k public chargers vs. ~72k target; gaps on highways and in rural areas; home charging dominates | **L\u2013M**: largest network globally (~3.6m+ public points); uneven urban concentration; low utilization at some sites | **M**: ~150\u2013180k public points; regional gaps; reliability and pricing complaints; grid connection delays |\n| **Macroeconomic** | **M**: affordability constraints; price-sensitive core buyers; high upfront cost vs. ICE and CNG/hybrid | **M\u2013H**: property slump and softer household demand; supplier payment stress | **M\u2013H**: economic stagnation; high rates and prices dampen private demand |\n| **Geopolitical / trade** | **M\u2013H**: heavy dependence on Chinese cells, magnets, electronics; 2025 Chinese export restrictions disrupted supply | **H**: EU countervailing duties (up to ~35% plus 10%), US 100% tariff, Canada 100%, Mexico up to 50%; export licensing possibly from 2026 (low confidence) | **H**: EU\u2013China trade tensions; exposure to Chinese rare-earth and battery material controls |\n| **Supply chain / execution** | **H**: cell localization early-stage; ACC PLI awardee delays | **L**: dominant battery supply chain (CATL ~37\u201338% global share) | **H**: Northvolt cancelled after bankruptcy; ACC plants delayed or uncertain |\n| **Overall risk (analytical view)** | **High** (execution and affordability), offset by highest long-run headroom | **Medium\u2013High** (competition and trade), offset by scale and technology leadership | **Medium\u2013High** (policy and competition), offset by strong incumbent OEMs and a lower-volatility installed base |\n\n## Part 2: Investment Summary\n\n*This is analysis, not personalized financial advice. Investors should verify the underlying data and consider their own circumstances, risk tolerance, and time horizon.*\n\n**Attractiveness**\n\n- **China** is the largest and most advanced EV market, with NEV penetration above 40% and the strongest battery and charging ecosystem. Its attractiveness is high on scale and capability but reduced by margin erosion, overcapacity, and rising trade barriers. Returns are likely to accrue to consolidators and low-cost leaders rather than to the broad field.\n- **India** offers the greatest growth optionality, with low penetration in cars and a strong 2W/3W base. Its attractiveness is high on long-term potential but constrained by affordability, policy transition, charging gaps, and dependence on imported cells. Value depends heavily on execution and on how quickly the price gap with ICE narrows.\n- **Germany** is the most mature and lowest-volatility market of the three in terms of installed base and incumbent OEMs, but its growth has been erratic and policy-dependent. Its attractiveness is moderate: a possible 2026 subsidy recovery and EU regulation support demand, while battery-supply setbacks and Chinese competition weigh on incumbents.\n\n**Key opportunities**\n\n- China: consolidation among surviving automakers; battery and component leaders; expansion of exports via local assembly abroad; PHEV-heavy export mix.\n- India: early share gains in e-PV among new entrants; cell localization under PLI/ACC; charging build-out; e-3W and fleet electrification.\n- Germany: a 2026 subsidy-driven demand rebound; EV-specific platforms (e.g., BMW Neue Klasse); charging network expansion; supplier adaptation.\n\n**Key risks**\n\n- Across all three: policy reversals, price competition from Chinese manufacturers, and trade or supply-chain disruption (especially rare earths and battery materials).\n- China: margin compression, supplier financial stress, export barriers, and the 2026 tax change.\n- India: subsidy taper, cell supply dependence, affordability, and smaller-player distress.\n- Germany: subsidy stop-start cycles, plant closures, battery project failures, and possible softening of the 2035 target.\n\n**Overall takeaway**\n\nNo single market dominates on every measure. China offers scale and technological depth but in a crowded, trade-constrained field. India offers the largest long-run headroom but the highest execution and affordability risk. Germany is the most mature and least explosive, but offers the weakest growth and a policy-dependent demand path. On a risk-adjusted view, the research suggests China is the most proven but most competitive; India is the highest-potential but least certain; and Germany is the lowest-volatility with the most limited upside. Each conclusion rests on approximate, partly unverified data, particularly for 2025 and for policy details (India GST changes, Germany's 2026 subsidy, China's export licensing), which should be confirmed before any investment decision.",
+    "plan": {
+     "tasks": [
+      {
+       "id": "research_india_ev",
+       "instruction": "Research the current electric vehicle (EV) market in India: sales volumes, market share, growth trends, key policies and subsidies (e.g., FAME, PLI), major players, charging infrastructure, and key risks.",
+       "task_type": "retrieval",
+       "depends_on": [],
+       "fused_from": []
+      },
+      {
+       "id": "research_china_ev",
+       "instruction": "Research the current electric vehicle (EV) market in China: sales volumes, market share, growth trends, key policies and subsidies, major players, charging infrastructure, export dynamics, and key risks.",
+       "task_type": "retrieval",
+       "depends_on": [],
+       "fused_from": []
+      },
+      {
+       "id": "research_germany_ev",
+       "instruction": "Research the current electric vehicle (EV) market in Germany: sales volumes, market share, growth trends, key policies and incentives, major players, charging infrastructure, and key risks.",
+       "task_type": "retrieval",
+       "depends_on": [],
+       "fused_from": []
+      },
+      {
+       "id": "compare_growth_risks",
+       "instruction": "Using the research on India, China and Germany EV markets, compare their growth trajectories (historical and projected) and their risk profiles (policy, competition, infrastructure, macroeconomic, geopolitical). Present a structured side-by-side comparison.",
+       "task_type": "reasoning",
+       "depends_on": [
+        "research_india_ev",
+        "research_china_ev",
+        "research_germany_ev"
+       ],
+       "fused_from": []
+      },
+      {
+       "id": "investment_summary",
+       "instruction": "Using the growth and risk comparison, write a short investment summary covering the attractiveness of the India, China and Germany EV markets, key opportunities and risks for investors, and a clear overall takeaway. Note that this is analysis, not personalized financial advice.",
+       "task_type": "synthesis",
+       "depends_on": [
+        "compare_growth_risks"
+       ],
+       "fused_from": []
+      }
+     ]
+    },
+    "executed_plan": {
+     "tasks": [
+      {
+       "id": "research_india_ev",
+       "instruction": "Research the current electric vehicle (EV) market in India: sales volumes, market share, growth trends, key policies and subsidies (e.g., FAME, PLI), major players, charging infrastructure, and key risks.",
+       "task_type": "retrieval",
+       "depends_on": [],
+       "fused_from": []
+      },
+      {
+       "id": "research_china_ev",
+       "instruction": "Research the current electric vehicle (EV) market in China: sales volumes, market share, growth trends, key policies and subsidies, major players, charging infrastructure, export dynamics, and key risks.",
+       "task_type": "retrieval",
+       "depends_on": [],
+       "fused_from": []
+      },
+      {
+       "id": "research_germany_ev",
+       "instruction": "Research the current electric vehicle (EV) market in Germany: sales volumes, market share, growth trends, key policies and incentives, major players, charging infrastructure, and key risks.",
+       "task_type": "retrieval",
+       "depends_on": [],
+       "fused_from": []
+      },
+      {
+       "id": "fused:compare_growth_risks..investment_summary",
+       "instruction": "Step 1/2 (compare_growth_risks): Using the research on India, China and Germany EV markets, compare their growth trajectories (historical and projected) and their risk profiles (policy, competition, infrastructure, macroeconomic, geopolitical). Present a structured side-by-side comparison.\nStep 2/2 (investment_summary): Using the growth and risk comparison, write a short investment summary covering the attractiveness of the India, China and Germany EV markets, key opportunities and risks for investors, and a clear overall takeaway. Note that this is analysis, not personalized financial advice.",
+       "task_type": "composite",
+       "depends_on": [
+        "research_india_ev",
+        "research_china_ev",
+        "research_germany_ev"
+       ],
+       "fused_from": [
+        "compare_growth_risks",
+        "investment_summary"
+       ]
+      }
+     ]
+    },
+    "groups": {
+     "research_india_ev": [
+      "research_india_ev"
+     ],
+     "research_china_ev": [
+      "research_china_ev"
+     ],
+     "research_germany_ev": [
+      "research_germany_ev"
+     ],
+     "fused:compare_growth_risks..investment_summary": [
+      "compare_growth_risks",
+      "investment_summary"
+     ]
+    },
+    "decision": {
+     "strategy": "adaptive",
+     "config_name": "adaptive[k=3,fused]",
+     "workers": 3,
+     "fuse": true,
+     "mode": "list",
+     "policy": "critical_path",
+     "predicted_latency_s": 33.19438158809943,
+     "predicted_p95_s": 73.89360227694175,
+     "selection_time_s": 0.07112450001295656,
+     "total_work_s": 51.11014838101586,
+     "span_s": 34.08102814944996,
+     "parallelism": 1.4996656837021136,
+     "candidates": [
+      {
+       "name": "adaptive[k=1]",
+       "workers": 1,
+       "fuse": false,
+       "mean_latency_s": 46.04109237164509,
+       "p95_latency_s": 86.43833041609184,
+       "cost_usd": 0.004920115879587792,
+       "calls": 5.0,
+       "success_rate": 1.0,
+       "score": 89.7522691676498
+      },
+      {
+       "name": "adaptive[k=1,fused]",
+       "workers": 1,
+       "fuse": true,
+       "mean_latency_s": 40.592902953194205,
+       "p95_latency_s": 81.36307609982512,
+       "cost_usd": 0.004303051260289287,
+       "calls": 4.03125,
+       "success_rate": 1.0,
+       "score": 81.7047461291357
+      },
+      {
+       "name": "adaptive[k=2]",
+       "workers": 2,
+       "fuse": false,
+       "mean_latency_s": 39.95275561139064,
+       "p95_latency_s": 81.0240196970964,
+       "cost_usd": 0.004920115879587792,
+       "calls": 5.0,
+       "success_rate": 1.0,
+       "score": 80.95677704789763
+      },
+      {
+       "name": "adaptive[k=2,fused]",
+       "workers": 2,
+       "fuse": true,
+       "mean_latency_s": 34.50456619293975,
+       "p95_latency_s": 73.89360227694175,
+       "cost_usd": 0.004303051260289287,
+       "calls": 4.03125,
+       "success_rate": 1.0,
+       "score": 71.88167245743955
+      },
+      {
+       "name": "adaptive[k=3]",
+       "workers": 3,
+       "fuse": false,
+       "mean_latency_s": 38.64257100655032,
+       "p95_latency_s": 78.62934587667958,
+       "cost_usd": 0.004920115879587792,
+       "calls": 5.0,
+       "success_rate": 1.0,
+       "score": 78.4492555328489
+      },
+      {
+       "name": "adaptive[k=3,fused]",
+       "workers": 3,
+       "fuse": true,
+       "mean_latency_s": 33.19438158809943,
+       "p95_latency_s": 73.89360227694175,
+       "cost_usd": 0.004303051260289287,
+       "calls": 4.03125,
+       "success_rate": 1.0,
+       "score": 70.57148785259923
+      }
+     ]
+    },
+    "report": {
+     "config_name": "adaptive[k=3,fused]",
+     "workers": 3,
+     "makespan_s": 40.506735599949025,
+     "records": {
+      "research_india_ev": {
+       "task_id": "research_india_ev",
+       "status": "completed",
+       "attempts": 1,
+       "start_s": 0.00010820000898092985,
+       "end_s": 22.75263789994642,
+       "call_latencies_s": [
+        22.75232959992718
+       ],
+       "input_tokens": 223,
+       "output_tokens": 4174,
+       "output": "# India EV Market: Research Summary\n\n**Caveat:** I had no live data access for this task. Figures are from my training knowledge (roughly through 2025) and are approximate. Verify against Vahan (MoRTH registrations), SIAM, and ministry releases before relying on them.\n\n## 1. Sales Volumes and Market Share (approximate)\n\n| Segment | Approx. figure | Penetration (approx.) | Notes |\n|---|---|---|---|\n| Electric passenger vehicles (e-PV) | ~100k units in CY2024; FY25 higher | ~2.5\u20134% of PV sales | Growing fast from a small base; new launches in 2025 |\n| Electric two-wheelers (e-2W) | ~1.1\u20131.2m units in FY25 | ~6% of 2W sales | Largest EV segment by units |\n| Electric three-wheelers (e-3W) | Majority of 3W registrations (~0.7m+ in FY25) | ~50\u201360% of 3W sales | Driven by e-rickshaws and last-mile fleets |\n| Electric buses | Growing via state and central tenders | Small share of bus sales | Government-led procurement |\n\nOverall, EVs are a high-single-digit share of total vehicle registrations, with 2W and 3W leading and cars lagging.\n\n## 2. Growth Trends\n- E-2W and e-3W have grown strongly since 2022, with a sharp dip after the 2022 subsidy and battery-fire disruptions, followed by recovery.\n- E-PV growth accelerated in 2024\u201325 with a wider model range and price points below INR 15 lakh. Growth is from a low base.\n- Competitive structure is shifting. In e-2W, Ola Electric led in 2024 but lost significant share in 2025 to TVS, Bajaj, Ather, and Hero Vida.\n\n## 3. Key Policies and Subsidies\n- **FAME I (2015\u201319) and FAME II (2019\u201324):** Demand incentives for e-2W, e-3W, e-buses, and charging. FAME II lapsed in March 2024.\n- **PM E-DRIVE (announced Sept 2024):** About INR 10,900 crore over FY25\u2013FY26. Covers e-2W, e-3W, e-ambulances, e-trucks, and charging infrastructure. Purchase subsidies are being phased down. Confirm current scheme timelines and amounts.\n- **PLI Auto Scheme (2021\u201328):** About INR 25,938 crore. Rewards localized production of EVs and components, with bonuses tied to sales and domestic value addition.\n- **ACC PLI (Advanced Chemistry Cell):** About INR 18,100 crore for domestic cell manufacturing. Awardees include Ola Electric, Reliance, and Rajesh Exports. Some awardees have faced delays.\n- **SPMEPCI (March 2024):** Allows CBU imports of EVs (CIF above USD 35,000\u201340,000) at reduced customs duty (15%) in exchange for committed local manufacturing investment (about INR 4,150 crore). This is the policy path for Tesla and other premium imports. Tesla opened showrooms in 2025.\n- **GST:** EVs are at 5% versus 28% for most ICE vehicles (with cess on some). Confirm whether 2025 GST rationalization changed this.\n- **State policies:** Maharashtra, Tamil Nadu, Karnataka, Delhi, Uttar Pradesh, and others offer road-tax and registration waivers, capital subsidies, and charging support.\n\n## 4. Major Players\n- **Cars:** Tata Motors (historically the e-PV leader, with Nexon EV, Punch EV, Curvv EV), JSW MG (Comet, Windsor), Mahindra (BE 6, XEV 9e), Hyundai (Creta Electric), BYD (premium, low volume), and Maruti Suzuki (e Vitara, planned). Tata's share has been declining as competitors enter.\n- **Two-wheelers:** Ola Electric, TVS (iQube), Bajaj (Chetak), Ather Energy, Hero MotoCorp (Vida), Honda (Activa e), and Greaves/Ampere.\n- **Three-wheelers:** Mahindra Last Mile Mobility, Bajaj, TVS, Piaggio, and many regional e-rickshaw makers.\n- **Batteries and cells:** Tata Agratas (Sanand gigafactory, under development), Reliance, Ola, Exide, Amara Raja, and Amara Raja/Log9 partnerships.\n\n## 5. Charging Infrastructure\n- Public charging stations number in the tens of thousands (roughly 25,000\u201330,000 by 2025, uncertain). Most are slow or AC, and fast DC chargers are concentrated in cities.\n- PM E-DRIVE funds public charger deployment. The government's target has been around 72,000 public chargers, which is well ahead of the current rollout (verify).\n- Key operators: Tata Power EZ Charge (largest share of public chargers), Statiq, ChargeZone, Jio-bp pulse, Ather Grid, and BPCL/IOCL/HPCL at fuel stations.\n- Gaps: highway corridors, rural areas, and multi-unit housing. Home charging is the dominant mode for private car owners.\n\n## 6. Key Risks\n1. **Cost and affordability:** EV upfront prices remain high versus ICE and hybrids, and financing and resale-value uncertainty deter buyers. Price-sensitive segments are the core market.\n2. **Policy dependence and transition:** Subsidy taper (FAME to PM E-DRIVE) creates demand volatility. PLI disbursement delays and localization targets add execution risk.\n3. **Supply chain and import dependence:** Cells, rare-earth magnets, and key electronics are heavily sourced from China. Chinese export restrictions (2025) disrupted Indian manufacturers. Cell localization is still early-stage.\n4. **Product quality and safety:** Battery fires in 2W (2022) led to recalls and regulatory scrutiny. Service network quality, especially for Ola, has been a consumer complaint area.\n5. **Charging infrastructure gaps:** Limits adoption outside cities and for long-distance travel. Grid reliability and power tariffs at public chargers are also issues.\n6. **Competition and market structure:** Rapid share shifts in 2W; heavy price competition; possible consolidation or distress among smaller start-ups.\n7. **Trade and tariff exposure:** Import-duty policy changes (SPMEPCI, potential trade deals with the US/EU) can alter the competitive landscape for imported EVs.\n8. **Alternative technologies:** Strong CNG and hybrid offerings (Maruti, Toyota) compete with BEVs for the same buyers.\n\n## 7. Uncertainties to Flag\n- Exact unit figures and penetration rates vary by source (Vahan vs SIAM vs industry bodies) and by period.\n- Current status of PM E-DRIVE disbursements, PLI awards, and the 2025 GST changes should be verified.\n- Charger counts and targets change frequently.\n- Model launches and market share positions in 2025\u201326 may have shifted from what I know.",
+       "error": null
+      },
+      "research_china_ev": {
+       "task_id": "research_china_ev",
+       "status": "completed",
+       "attempts": 1,
+       "start_s": 0.0006155999144539237,
+       "end_s": 20.22517250000965,
+       "call_latencies_s": [
+        20.22440180007834
+       ],
+       "input_tokens": 217,
+       "output_tokens": 3659,
+       "output": "# China EV Market: Research Summary\n\n**Caveat:** I had no live data access for this task. Figures are from my training knowledge, which thins out in 2025. Treat the 2025 numbers as approximate and verify against CAAM, CPCA, and EVCIPA before relying on them.\n\n## 1. Sales Volumes and Market Share\n- **2023:** About 9.5 million NEVs (BEV + PHEV + FCEV) sold, including exports (CAAM). NEV share of total vehicle sales was about 31.6%.\n- **2024:** About 12.9 million NEVs sold (+35%), with NEV share of about 41% (CAAM). Domestic retail penetration was roughly 47%.\n- **2025 (approximate):** Roughly 16 million NEVs, with NEV share near or above 45\u201350%. Monthly penetration regularly exceeded 50% in late 2025. *Confidence: moderate.*\n- **Cumulative fleet:** Over 30 million NEVs on the road by end-2024 (Ministry of Public Security), likely around 40 million by end-2025.\n- **Growth trend:** Rapid growth from a high base. Year-on-year growth slowed from over 35% in 2024 to a lower, still-positive rate in 2025 as domestic subsidies tapered and the market matured.\n\n## 2. Key Policies and Subsidies\n- **NEV purchase tax exemption:** Full exemption through 2025. From 2026 to 2027, buyers pay a halved rate (5%), with a cap on the tax relief. This pulls some demand forward into 2025.\n- **Trade-in / scrappage subsidies:** Launched in 2024 and renewed in 2025. Central subsidies for trading in older vehicles for NEVs, with local top-ups varying by region. Funding has been periodically exhausted and replenished.\n- **Local purchase subsidies:** Largely eliminated; national policy shifted to tax and trade-in incentives.\n- **Dual-credit policy:** Manufacturers must balance fuel-consumption and NEV credits. This underpins automaker NEV targets.\n- **Long-term target:** NEVs to become mainstream of new-vehicle sales by 2035 (industry roadmap).\n- **Industrial policy:** Support for battery, charging, and autonomous driving R&D; 2025 \"anti-involution\" campaign to curb destructive price competition and pressure on suppliers' payment terms.\n\n## 3. Major Players\n- **BYD:** Largest NEV maker. About 4.3 million vehicles in 2024 (including commercial), surpassing Tesla in BEV volume. Growing in PHEVs and overseas. Roughly a quarter to a third of the NEV market depending on measure.\n- **Geely (incl. Zeekr), Chery, SAIC-GM-Wuling, Changan, Great Wall:** Strong domestic and export presence.\n- **Tesla (Shanghai Gigafactory):** Major export hub and a key BEV volume source.\n- **Startups:** Li Auto, NIO, XPeng, Leapmotor, Xiaomi (entered 2024 with SU7), and Huawei-linked brands (AITO/Seres, Stelato, Luxeed). Several smaller entrants failed, notably Neta (Hozon), which entered bankruptcy in 2025.\n- **Battery suppliers:** CATL (largest global EV battery maker, roughly 37\u201338% global share in 2024) and BYD (second). LFP chemistry dominates.\n\n## 4. Charging Infrastructure\n- **Public charging points:** About 3.6 million by end-2024, rising to roughly 4 million+ in 2025 (EVCIPA). *Confidence: moderate.*\n- **Total charging points** including private/residential: about 12\u201313 million at end-2024.\n- **Scale:** Largest charging network globally. Operators include State Grid, TELD, and Star Charge. NIO operates battery-swap stations.\n- **Gap:** Uneven distribution, with urban concentration; some older public chargers show low utilization.\n\n## 5. Export Dynamics\n- **Overall:** China became the world's largest vehicle exporter in 2023, with total vehicle exports of about 4.9 million, rising to roughly 5.8\u20136 million in 2024.\n- **NEV exports:** About 1.2\u20131.3 million in 2024 (roughly +75\u201380%), with continued strong growth in 2025. Key markets include Europe, Southeast Asia, Latin America, the Middle East, and Australia.\n- **Trade barriers:**\n  - **EU:** Countervailing duties on Chinese BEVs from late 2024 (up to about 35% on top of the 10% standard tariff, varying by maker).\n  - **US:** Effective 100% Section 301 tariff on Chinese EVs.\n  - **Canada:** 100% surtax on Chinese EVs (2024).\n  - **Mexico:** Tariffs of up to 50% on Chinese vehicles (approved 2025).\n- **Response:** Shift toward local assembly abroad (Hungary, Turkey, Brazil, Thailand, Indonesia) and PHEV-heavy export mixes.\n- **Regulatory note:** Reports indicate China planned export licensing requirements for EVs from 2026. *Confidence: low; verify.*\n\n## 6. Key Risks\n- **Price war and margin erosion:** Aggressive discounting across brands; many automakers operating at thin margins.\n- **Overcapacity:** Substantial unused capacity; consolidation expected, with weaker firms exiting.\n- **Subsidy phase-down:** Tax change in 2026 and tapering trade-in funds may slow domestic demand and create a 2025 pull-forward effect.\n- **Supplier financial stress:** Long payment terms and delayed receivables for parts makers.\n- **Demand softness:** Household spending weakened by the property slump and slower economic growth.\n- **Export barriers:** Tariffs and local-content rules in the EU, US, Canada, Mexico, and potentially others.\n- **Supply-chain and geopolitics:** Export controls on battery technology and critical minerals; China's rare-earth magnet export restrictions (2025) affecting global supply chains.\n- **Safety and reputation:** Driver-assistance incidents and regulatory scrutiny of marketing and software updates.\n- **Technology risk:** Rapid shifts (e.g., solid-state batteries, autonomy) could strand investments.\n\n## Summary\nChina is the world's largest and most advanced EV market by volume, with NEV penetration above 40% and climbing, a dominant battery supply chain, and the largest charging network. Growth is still strong but is shifting from subsidy-driven to market-driven demand, with margins under pressure and export barriers rising. Most investment risk centers on price competition, consolidation, and trade policy rather than on demand existing.",
+       "error": null
+      },
+      "research_germany_ev": {
+       "task_id": "research_germany_ev",
+       "status": "completed",
+       "attempts": 1,
+       "start_s": 0.0009154999861493707,
+       "end_s": 18.21843279991299,
+       "call_latencies_s": [
+        18.217354999971576
+       ],
+       "input_tokens": 213,
+       "output_tokens": 3247,
+       "output": "# Germany EV Market Research\n\n*Note: I had no live data access for this task. Figures are from training knowledge, mainly KBA (Federal Motor Transport Authority) and BNetzA reporting through 2024 and partial 2025. Verify recent numbers before using them for investment decisions.*\n\n## Sales Volumes and Market Share (confidence: medium to high for 2023\u20132024)\n- **2023:** About 524,000 new battery-electric vehicles (BEVs) registered, roughly 18.4% of new registrations. This was a peak year, boosted by subsidies that ended in December 2023.\n- **2024:** BEV registrations fell to roughly 380,000 (about 13.5% share). Plug-in hybrids (PHEVs) held a further share of roughly 6\u20137%.\n- **2025 (partial, lower confidence):** Monthly BEV shares recovered to roughly 16\u201320% in several months, helped by new subsidy expectations and cheaper models. Full-year figures should be checked against KBA releases.\n- **Trend:** Volatile growth. Demand is strongly policy-driven, with sharp drops after incentives end.\n\n## Key Policies and Incentives\n- **Purchase subsidy:** The 2016\u20132023 programme (up to \u20ac9,000 at peak) ended in late 2023 after the Federal Constitutional Court struck down the reallocation of \u20ac60bn in unused COVID-era funds to the Climate and Transformation Fund (KTF). Confidence: high.\n- **New income-based subsidy (2026):** The government announced a new programme for low- and middle-income households, reportedly \u20ac3,000\u2013\u20ac6,000 per vehicle, with a budget of about \u20ac3bn. Details, eligibility, and start dates should be verified. Confidence: medium-low on specifics.\n- **Company car taxation:** Reduced taxation of BEV company cars (0.25% of list price rule, under the \u20ac60k threshold) supports fleet demand. The benefit is being phased down. Confidence: medium.\n- **Vehicle tax:** Earlier multi-year road tax exemptions for EVs have been reduced or ended for newer registrations. Confidence: medium.\n- **EU regulation:** EU CO2 fleet targets (with 2025\u20132027 averaging) push manufacturers toward EVs. The 2035 combustion-engine phase-out is under political debate, with proposals to soften it (e.g., allowing e-fuel or plug-in hybrid exceptions or a reduced reduction target). Confidence: medium on the direction, low on final outcome.\n- **EU tariffs on Chinese BEVs:** Countervailing duties (from late 2024) apply on top of standard tariffs. Confidence: high.\n\n## Major Players (confidence: high on the list, medium on rankings)\n- **Volkswagen Group** (VW, Audi, Porsche, Skoda, Cupra): Largest German EV seller; ID. series and the Enyaq/ID. family. Also a major supplier of EVs in Europe.\n- **BMW:** Neue Klasse platform (iX3 launching 2025) is a key product bet.\n- **Mercedes-Benz:** EQ range, with CLA EV and GLC EV as recent launches.\n- **Tesla:** Model Y and Model 3 built at Gr\u00fcnheide (Berlin); sales have been weak in 2024\u20132025 amid brand backlash and competition.\n- **Chinese brands:** BYD, MG (SAIC), Xpeng, and others growing quickly, especially in PHEVs and budget BEVs.\n- **Stellantis (Opel), Renault, Hyundai/Kia:** Competitive mid-market EVs.\n- **Battery and supply chain:** CATL plant in Arnstadt (operating). Northvolt's Heide project was cancelled after the company's 2025 bankruptcy. ACC (Stellantis/Mercedes/TotalEnergies) plans in Kaiserslautern and Termoli have been delayed or uncertain. Confidence: medium.\n\n## Charging Infrastructure (confidence: medium)\n- Public charging points number roughly 150,000\u2013180,000 by 2025 (BNetzA). Confidence: medium.\n- Federal programme \"Deutschlandnetz\" aims for thousands of fast-charging points along major routes.\n- Major operators: EnBW, Ionity, Tesla Supercharger network, Aral pulse, Allego, and others.\n- Known issues: uneven regional coverage, reliability and payment complaints, slow grid connection approvals, and high charging prices at fast chargers.\n\n## Key Risks\n1. **Policy instability:** Subsidy stop-start cycles and court-driven budget changes create demand swings.\n2. **Weak consumer demand:** High purchase prices, interest rates, and economic stagnation dampen private demand.\n3. **Chinese competition and price war:** Lower-cost Chinese EVs and PHEVs pressure German margins.\n4. **Industrial restructuring:** Job cuts and plant closures at suppliers (e.g., Bosch, ZF, Continental) and automakers.\n5. **Battery supply chain:** Project delays and failures (Northvolt, ACC) weaken local cell production.\n6. **Regulatory uncertainty:** Possible softening of the 2035 target and changes to CO2 rules.\n7. **Charging and grid:** Slow grid upgrades, uneven coverage, and reliability problems can deter buyers.\n8. **Raw materials and trade:** Exposure to Chinese rare earth and battery material export controls; EU\u2013China trade tensions.\n\n## Summary\nGermany is Europe's largest car market and a major EV market, but growth has been policy-driven and uneven, with a 2024 decline after subsidies ended. A new income-based subsidy from 2026 could revive demand, but its details need verification. Strengths include strong OEMs, EU regulatory pressure, and a growing charging network. Weaknesses include battery supply chain setbacks, Chinese price competition, and policy uncertainty.",
+       "error": null
+      },
+      "fused:compare_growth_risks..investment_summary": {
+       "task_id": "fused:compare_growth_risks..investment_summary",
+       "status": "completed",
+       "attempts": 1,
+       "start_s": 22.75325770000927,
+       "end_s": 40.50584939995315,
+       "call_latencies_s": [
+        17.752355200005695
+       ],
+       "input_tokens": 7204,
+       "output_tokens": 3617,
+       "output": "# EV Markets: India, China, and Germany\n\n*All figures come from the prior research tasks, which relied on training knowledge without live data. They are approximate and should be verified against Vahan/SIAM (India), CAAM/CPCA/EVCIPA (China), and KBA/BNetzA (Germany) before use.*\n\n## Part 1: Growth and Risk Comparison\n\n### 1A. Growth Trajectories\n\n| Dimension | India | China | Germany |\n|---|---|---|---|\n| **Current scale** | E-PV ~100k units (CY2024); e-2W ~1.1\u20131.2m and e-3W ~0.7m+ (FY25) | ~12.9m NEVs sold in 2024; ~16m in 2025 (approx.) | ~380k BEVs in 2024; BEV share ~13.5% |\n| **Penetration (latest)** | E-PV ~2.5\u20134%; e-2W ~6%; e-3W ~50\u201360% | NEV ~41% (2024); ~45\u201350%+ (2025, moderate confidence) | BEV ~13.5% (2024); ~16\u201320% in some 2025 months (partial) |\n| **Historical growth** | Fast from a low base; e-2W/3W strong since 2022 with a dip after the 2022 subsidy and battery-fire disruptions; e-PV accelerated in 2024\u201325 | Very fast: NEV +35% in 2024; growth slowed to a lower positive rate in 2025 | Volatile: peak of ~524k BEVs in 2023, then about \u221227% in 2024 after subsidies ended |\n| **Growth shape** | Low base, rising trajectory, with segments at different stages | Maturing: subsidy-driven to market-driven | Stop-start, policy-driven cycles |\n| **Projected direction** (qualitative; no quantified forecasts in the research) | Structurally high headroom as penetration is low; pace depends on PM E-DRIVE taper and affordability | Continued growth but slowing; 2026\u201327 tax change (exemption replaced by a halved rate) may dampen demand after 2025 pull-forward | Possible recovery from 2026 income-based subsidy (~\u20ac3bn budget reported; details unverified); long-run path tied to the EU 2035 rule, which is under debate |\n| **Main growth drivers** | Low penetration, price-sensitive segments, 2W/3W electrification, localization incentives (PLI, ACC PLI) | Scale, LFP battery cost leadership, NEV dual-credit policy, product breadth, exports | EU CO2 targets, new subsidy, company-car tax benefits, Chinese budget EV entrants |\n\n### 1B. Risk Profiles\n\nRatings are analytical judgments based on the research summaries (L = low, M = medium, H = high risk).\n\n| Risk Category | India | China | Germany |\n|---|---|---|---|\n| **Policy** | **H**: subsidy taper (FAME II lapsed, PM E-DRIVE phasing down); PLI delays; state-level variation | **M**: stable national direction, but the 2026 tax change, trade-in fund volatility, and 2025 \"anti-involution\" rules add uncertainty | **H**: court-driven budget reversal; subsidy stop-start; possible softening of 2035 target |\n| **Competition** | **H**: rapid share shifts in 2W (Ola lost ground to TVS, Bajaj, Ather, Hero); heavy price competition; Tata's car share declining | **H**: severe price war; overcapacity; consolidation and failures (e.g., Neta bankruptcy); thin margins | **H**: Chinese brands (BYD, MG, Xpeng) entering with budget BEVs and PHEVs; pressure on German OEMs |\n| **Infrastructure** | **H**: ~25\u201330k public chargers vs. ~72k target; gaps on highways and in rural areas; home charging dominates | **L\u2013M**: largest network globally (~3.6m+ public points); uneven urban concentration; low utilization at some sites | **M**: ~150\u2013180k public points; regional gaps; reliability and pricing complaints; grid connection delays |\n| **Macroeconomic** | **M**: affordability constraints; price-sensitive core buyers; high upfront cost vs. ICE and CNG/hybrid | **M\u2013H**: property slump and softer household demand; supplier payment stress | **M\u2013H**: economic stagnation; high rates and prices dampen private demand |\n| **Geopolitical / trade** | **M\u2013H**: heavy dependence on Chinese cells, magnets, electronics; 2025 Chinese export restrictions disrupted supply | **H**: EU countervailing duties (up to ~35% plus 10%), US 100% tariff, Canada 100%, Mexico up to 50%; export licensing possibly from 2026 (low confidence) | **H**: EU\u2013China trade tensions; exposure to Chinese rare-earth and battery material controls |\n| **Supply chain / execution** | **H**: cell localization early-stage; ACC PLI awardee delays | **L**: dominant battery supply chain (CATL ~37\u201338% global share) | **H**: Northvolt cancelled after bankruptcy; ACC plants delayed or uncertain |\n| **Overall risk (analytical view)** | **High** (execution and affordability), offset by highest long-run headroom | **Medium\u2013High** (competition and trade), offset by scale and technology leadership | **Medium\u2013High** (policy and competition), offset by strong incumbent OEMs and a lower-volatility installed base |\n\n## Part 2: Investment Summary\n\n*This is analysis, not personalized financial advice. Investors should verify the underlying data and consider their own circumstances, risk tolerance, and time horizon.*\n\n**Attractiveness**\n\n- **China** is the largest and most advanced EV market, with NEV penetration above 40% and the strongest battery and charging ecosystem. Its attractiveness is high on scale and capability but reduced by margin erosion, overcapacity, and rising trade barriers. Returns are likely to accrue to consolidators and low-cost leaders rather than to the broad field.\n- **India** offers the greatest growth optionality, with low penetration in cars and a strong 2W/3W base. Its attractiveness is high on long-term potential but constrained by affordability, policy transition, charging gaps, and dependence on imported cells. Value depends heavily on execution and on how quickly the price gap with ICE narrows.\n- **Germany** is the most mature and lowest-volatility market of the three in terms of installed base and incumbent OEMs, but its growth has been erratic and policy-dependent. Its attractiveness is moderate: a possible 2026 subsidy recovery and EU regulation support demand, while battery-supply setbacks and Chinese competition weigh on incumbents.\n\n**Key opportunities**\n\n- China: consolidation among surviving automakers; battery and component leaders; expansion of exports via local assembly abroad; PHEV-heavy export mix.\n- India: early share gains in e-PV among new entrants; cell localization under PLI/ACC; charging build-out; e-3W and fleet electrification.\n- Germany: a 2026 subsidy-driven demand rebound; EV-specific platforms (e.g., BMW Neue Klasse); charging network expansion; supplier adaptation.\n\n**Key risks**\n\n- Across all three: policy reversals, price competition from Chinese manufacturers, and trade or supply-chain disruption (especially rare earths and battery materials).\n- China: margin compression, supplier financial stress, export barriers, and the 2026 tax change.\n- India: subsidy taper, cell supply dependence, affordability, and smaller-player distress.\n- Germany: subsidy stop-start cycles, plant closures, battery project failures, and possible softening of the 2035 target.\n\n**Overall takeaway**\n\nNo single market dominates on every measure. China offers scale and technological depth but in a crowded, trade-constrained field. India offers the largest long-run headroom but the highest execution and affordability risk. Germany is the most mature and least explosive, but offers the weakest growth and a policy-dependent demand path. On a risk-adjusted view, the research suggests China is the most proven but most competitive; India is the highest-potential but least certain; and Germany is the lowest-volatility with the most limited upside. Each conclusion rests on approximate, partly unverified data, particularly for 2025 and for policy details (India GST changes, Germany's 2026 subsidy, China's export licensing), which should be confirmed before any investment decision.",
+       "error": null
+      }
+     }
+    },
+    "metrics": {
+     "wall_clock_s": 44.117382999975234,
+     "planning_s": 3.51097230007872,
+     "selection_s": 0.07212310004979372,
+     "execution_s": 40.506735599949025,
+     "synthesis_s": 2.1999934688210487e-05,
+     "model_calls": 5,
+     "input_tokens": 8950,
+     "output_tokens": 15276,
+     "cost_usd": 0.008533,
+     "success": true,
+     "plan_attempts": 1,
+     "plan_fallback": false,
+     "tasks_planned": 5,
+     "tasks_executed": 4,
+     "peak_concurrency": 3
+    },
+    "plan_errors": []
+   }
+  }
+ ],
+ "compare": [
+  {
+   "strategy": "sequential",
+   "latency": 80.2744552999502
+  },
+  {
+   "strategy": "static_parallel",
+   "latency": 51.67110010003671
+  },
+  {
+   "strategy": "eager_parallel",
+   "latency": 43.88249160000123
+  },
+  {
+   "strategy": "adaptive",
+   "latency": 47.509596599964425
+  }
+ ]
+}

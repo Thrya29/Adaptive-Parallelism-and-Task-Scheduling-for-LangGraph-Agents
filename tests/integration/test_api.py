@@ -173,3 +173,18 @@ def test_metrics_reflect_runs(api: TestClient) -> None:
     assert "apsched_run_duration_seconds_bucket" in text
     assert "apsched_runs_in_flight 0.0" in text
     assert 'apsched_tokens_total{direction="input"}' in text
+
+
+def test_dashboard_is_served(api: TestClient) -> None:
+    for path in ("/", "/dashboard"):
+        r = api.get(path)
+        assert r.status_code == 200
+        assert r.headers["content-type"].startswith("text/html")
+        assert "Adaptive Scheduler" in r.text
+        assert "/v1/runs/stream" in r.text  # the page drives the streaming API
+    assert api.get("/v1/info").json()["mock_time_scale"] > 0
+
+
+def test_dashboard_open_even_with_api_key() -> None:
+    with client(api_key="s3cret") as c:
+        assert c.get("/").status_code == 200  # the page loads; API calls from it need the key

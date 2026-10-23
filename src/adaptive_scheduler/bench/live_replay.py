@@ -83,7 +83,7 @@ def _graph(plan: Mapping[str, Any]) -> TaskGraph:
 
 
 def warm_estimator(result: LiveResult, prior: ProviderProfile) -> CostEstimator:
-    """An estimator that has already observed every call of a recorded run."""
+    """An estimator that has already observed every call of a recorded run (in memory)."""
     est = CostEstimator(prior=prior)
     for call in result.calls:
         task_type = TaskType(call["task_type"])

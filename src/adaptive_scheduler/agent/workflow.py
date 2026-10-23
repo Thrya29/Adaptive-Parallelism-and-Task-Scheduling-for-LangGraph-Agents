@@ -18,9 +18,11 @@
 
 from __future__ import annotations
 
+import logging
 import time
 import uuid
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any, Literal, TypedDict
 
 from langchain_core.language_models import BaseChatModel
@@ -66,6 +68,8 @@ from adaptive_scheduler.simulation.engine import (
 )
 from adaptive_scheduler.simulation.selector import Objective, select_strategy
 from adaptive_scheduler.simulation.strategies import BASELINES, Strategy
+
+logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------- options & results
@@ -234,7 +238,11 @@ class AdaptiveAgent:
             if provider is LLMProvider.MOCK
             else LLMPlanner(llm, options.max_tasks)
         )
-        return cls(llm, planner, options=options, checkpointer=checkpointer)
+        estimator = CostEstimator(prior=options.provider_prior)
+        if settings.estimator_warm_start:
+            n = estimator.observe_log(Path(settings.estimator_warm_start))
+            logger.info("cost model warm-started", extra={"calls": n})
+        return cls(llm, planner, options=options, estimator=estimator, checkpointer=checkpointer)
 
     # ------------------------------------------------------------------ public API
     async def arun(

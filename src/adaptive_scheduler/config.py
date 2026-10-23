@@ -58,6 +58,10 @@ class Settings(BaseSettings):
     max_retries: int = Field(default=2, ge=0, le=10)
     task_timeout_s: float = Field(default=120.0, gt=0)
     selector_samples: int = Field(default=64, ge=1, le=10_000)
+    estimator_warm_start: str | None = Field(
+        default=None,
+        description="Call log (calls.csv or its directory) to calibrate the cost model at startup.",
+    )
     log_level: str = "INFO"
     log_format: Literal["json", "text"] = "json"
 

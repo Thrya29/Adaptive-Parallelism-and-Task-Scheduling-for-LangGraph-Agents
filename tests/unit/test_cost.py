@@ -149,3 +149,19 @@ def test_estimator_validation() -> None:
         CostEstimator(decay=0)
     with pytest.raises(ValueError, match="prior"):
         CostEstimator(prior_strength=-1)
+
+
+def test_warm_start_from_call_log(tmp_path) -> None:  # type: ignore[no-untyped-def]
+    log = tmp_path / "calls.csv"
+    rows = ["task_type,status,latency_s,input_tokens,output_tokens"]
+    rng = np.random.default_rng(3)
+    true = ProviderProfile(ttft_s=0.8, decode_tps=200.0, noise_sigma=0.1, tail_prob=0.0)
+    for _ in range(300):
+        out = float(rng.uniform(500, 4000))
+        rows.append(f"reasoning,completed,{true.sample_latency(rng, 1000, out)},1000,{out}")
+    log.write_text(chr(10).join(rows), encoding="utf-8")
+    est = CostEstimator()
+    assert est.observe_log(tmp_path) == 300  # accepts the directory too
+    assert est.provider().expected_latency(1000, 2000) == pytest.approx(
+        true.expected_latency(1000, 2000), rel=0.05
+    )

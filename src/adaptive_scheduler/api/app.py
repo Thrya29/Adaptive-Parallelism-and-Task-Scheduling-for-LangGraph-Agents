@@ -25,10 +25,11 @@ import time
 import uuid
 from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
+from importlib import resources
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, FastAPI, HTTPException, Request, Response
-from fastapi.responses import JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 from pydantic import BaseModel, Field
 from sse_starlette.sse import EventSourceResponse
@@ -123,6 +124,14 @@ ERRORS: dict[int | str, dict[str, Any]] = {
 ops = APIRouter(tags=["ops"])
 
 
+@ops.get("/", response_class=HTMLResponse, include_in_schema=False)
+@ops.get("/dashboard", response_class=HTMLResponse, include_in_schema=False)
+async def dashboard() -> HTMLResponse:
+    """Interactive dashboard: run a request and watch planning, scheduling and execution live."""
+    page = resources.files("adaptive_scheduler.api").joinpath("static/dashboard.html")
+    return HTMLResponse(page.read_text(encoding="utf-8"))
+
+
 @ops.get("/healthz")
 async def healthz() -> dict[str, str]:
     return {"status": "ok"}
@@ -142,6 +151,7 @@ async def info(service: ServiceDep) -> dict[str, Any]:
         "version": __version__,
         "llm_provider": provider.value,
         "model": s.anthropic_model if provider is LLMProvider.ANTHROPIC else "mock",
+        "mock_time_scale": s.mock_time_scale if provider is LLMProvider.MOCK else 1.0,
         "max_concurrent_runs": s.max_concurrent_runs,
         "max_request_chars": s.max_request_chars,
         "run_timeout_s": s.run_timeout_s,

@@ -1,5 +1,6 @@
 """End-to-end tests of the LangGraph agent on the mock LLM (no API key required)."""
 
+from pathlib import Path
 from typing import Any
 
 import pytest
@@ -243,3 +244,18 @@ def test_cli_run_on_mock(
     assert "Strategy: adaptive" in out
     assert main(["--provider", "mock", "run", "--strategy", "sequential", "--json", "hi"]) == 0
     assert '"strategy": "sequential"' in capsys.readouterr().out
+
+
+def test_from_settings_warm_starts_estimator(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    monkeypatch.setitem(Settings.model_config, "env_file", None)
+    log = tmp_path / "calls.csv"
+    rows = ["task_type,status,latency_s,input_tokens,output_tokens"]
+    rows += [f"reasoning,completed,{2 + i % 3},500,{300 + 50 * i}" for i in range(20)]
+    log.write_text("\n".join(rows), encoding="utf-8")
+    agent = AdaptiveAgent.from_settings(
+        Settings(llm_provider="mock", estimator_warm_start=str(log))  # type: ignore[arg-type]
+    )
+    assert agent.estimator.observations == 20

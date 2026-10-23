@@ -4,6 +4,18 @@
 ![Python](https://img.shields.io/badge/python-3.11%20%7C%203.12-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
+<p align="center">
+  <img src="docs/media/demo.gif" width="900"
+       alt="Dashboard replaying a real run: the plan graph lights up, three research tasks run in parallel, dependent steps wait, then the strategy comparison">
+</p>
+
+<p align="center">
+  <b><a href="docs/media/overview.mp4">▶ 90-second video overview</a></b> ·
+  <a href="docs/USER_MANUAL.md">User manual</a> ·
+  <a href="docs/REPORT.md">Research report</a> ·
+  <a href="docs/DEPLOYMENT.md">Deployment</a>
+</p>
+
 > **Research question.** Can an algorithm predict which tasks of an LLM agent workflow should run
 > in parallel and which sequentially — choosing the execution architecture that minimizes latency
 > and cost without reducing task success?
@@ -14,6 +26,132 @@ This project builds a LangGraph workflow that decomposes a request into tasks, r
 dependencies as a **DAG**, **estimates task costs**, analyses the **critical path**, and uses a
 **cost-aware adaptive scheduler** to run independent tasks concurrently only when doing so pays
 off. It is evaluated against sequential and static-parallel execution.
+
+## What it does, in one minute
+
+You give the system a request in plain language. It then:
+
+1. **Plans.** An LLM breaks the request into tasks and records which tasks need which others'
+   results. The result is a dependency graph (DAG).
+2. **Decides.** Before running anything, it simulates several ways to execute that graph and
+   picks the one with the best latency, tail latency and cost. The options include all in
+   sequence, up to *k* tasks at once, and merging chained steps into one call.
+3. **Executes.** Independent tasks run at the same time; each task starts the moment its inputs
+   are ready, never earlier.
+4. **Learns.** Every call's measured time and size recalibrates the cost model.
+
+Everything is visible live in a web dashboard, and the system also runs as a CLI, a Python
+library and an HTTP service. It runs **with or without an API key**: without one, a built-in mock
+LLM simulates realistic behaviour for free.
+
+## See it in action
+
+The screenshots below come from the real dashboard replaying a real run on Claude Haiku 5.5, and
+from the real CLI.
+
+**The dashboard while a request is running.** The planner split the request into five tasks
+(**1 · Plan**). The three research tasks depend on nothing, so the scheduler runs them at the same
+time (blue = running). The comparison and the summary wait for their inputs (grey = waiting).
+**2 · Decision** shows what the scheduler chose before running anything: `adaptive[k=3,fused]`,
+meaning up to three tasks at once with the last two dependent steps merged into a single call.
+**3 · Execution timeline** draws each model call as a bar; overlapping bars ran in parallel.
+
+![Dashboard during a run](docs/media/screenshots/dashboard_running.png)
+
+**The same run when finished.** Every task is green, the metrics show 44 s wall-clock, 5 model
+calls and success, and the answer (a real Claude response) is shown in full. The bottom panel
+comes from **Compare strategies**, which ran the same request under all four strategies:
+sequential took 80 s, and the parallel strategies 44–52 s.
+
+![Dashboard after the run](docs/media/screenshots/dashboard_complete.png)
+
+**How the decision is made.** The scheduler knows the total work *W* and the critical path *S*
+(the longest chain that must run in order), so *W/S* bounds how much parallelism can help. It then
+simulates each candidate configuration 64 times and lists the predicted mean and 95th-percentile
+latency, cost and number of calls. The chosen row is highlighted.
+
+![Decision panel](docs/media/screenshots/dashboard_decision.png)
+
+**What actually happened.** The three research calls ran side by side. The merged
+"compare + investment" call started the instant the last of them finished. The dashed line is
+the predicted finish time.
+
+![Execution timeline](docs/media/screenshots/dashboard_timeline.png)
+
+**The same in the terminal.** `apsched run` prints the plan, the decision with every candidate,
+an execution timeline and the metrics. This run uses the free mock LLM, so no key is needed.
+
+![CLI run](docs/media/screenshots/cli_run.png)
+
+**As a service.** Interactive API documentation at `/docs` (left) and Prometheus metrics at
+`/metrics` (right).
+
+<p>
+  <img src="docs/media/screenshots/api_docs.png" width="49%" alt="API documentation">
+  <img src="docs/media/screenshots/metrics.png" width="49%" alt="Prometheus metrics">
+</p>
+
+## Getting started
+
+The [user manual](docs/USER_MANUAL.md) covers every step in detail, with screenshots and
+troubleshooting.
+
+### First time (about 5 minutes)
+
+Requires Python 3.11+ and git.
+
+```bash
+git clone https://github.com/Thrya29/Adaptive-Parallelism-and-Task-Scheduling-for-LangGraph-Agents.git
+cd Adaptive-Parallelism-and-Task-Scheduling-for-LangGraph-Agents
+python -m venv .venv
+.venv\Scripts\activate                       # macOS/Linux: source .venv/bin/activate
+pip install -e ".[api,observability,anthropic]"
+apsched info                                  # shows which backend will be used
+```
+
+**Optional: real Claude answers.** Copy `.env.example` to `.env` and set
+`ANTHROPIC_API_KEY=sk-ant-...`. Keys come from [console.anthropic.com](https://console.anthropic.com)
+and are billed separately from a Claude.ai subscription. Without a key everything runs on the mock
+LLM.
+
+| You have… | What happens |
+|---|---|
+| **No API key** | A deterministic **mock LLM** simulates realistic latency, token usage and failures. Free, offline, reproducible. |
+| **An Anthropic API key** | Real Claude calls are used automatically (`APSCHED_LLM_PROVIDER=auto`). Force either one with `apsched --provider mock ...` or `--provider anthropic`. |
+
+### Every day
+
+```bash
+cd Adaptive-Parallelism-and-Task-Scheduling-for-LangGraph-Agents
+.venv\Scripts\activate                       # macOS/Linux: source .venv/bin/activate
+apsched serve --port 8080                     # then open http://localhost:8080
+```
+
+| To… | Do this |
+|---|---|
+| run a request and watch it | open **http://localhost:8080**, type it, press **Run** |
+| compare all four strategies | press **Compare strategies** in the dashboard |
+| run from the terminal | `apsched run "your request"` (`--strategy sequential` to force one, `--json` for the full result) |
+| call it from another program | `POST /v1/runs` (JSON) or `POST /v1/runs/stream` (live events); docs at **/docs** |
+| run it in the background with monitoring | `docker compose up -d --build` (API on :8080, Prometheus on :9090) |
+| start already calibrated after a restart | `APSCHED_ESTIMATOR_WARM_START=docs/results/live apsched serve` |
+| reproduce the research results | `apsched bench --profile full --jobs 4` (free, about 3 min) |
+| update to the latest version | `git pull && pip install -e ".[api,observability,anthropic]"` |
+
+### Use it as a library
+
+```python
+import asyncio
+from adaptive_scheduler.agent import AdaptiveAgent, Strategy
+from adaptive_scheduler.config import Settings
+
+agent = AdaptiveAgent.from_settings(Settings())  # mock or Anthropic, per your settings
+result = asyncio.run(agent.arun("your request", strategy=Strategy.ADAPTIVE))
+print(result.answer, result.metrics, result.decision.config_name)
+```
+
+API keys are read only from the environment or `.env` (git-ignored) and are never logged.
+Production deployment (Docker, Kubernetes, Cloud Run, auth, tracing): [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
 
 ## Motivation
 
@@ -39,105 +177,7 @@ adding agents, it treats agent execution as a classical scheduling problem with 
 | 4 | Benchmark suite, experiments, statistics, figures | ✅ done |
 | 5 | Real-LLM validation (Claude Haiku 5.5), calibration fix, research report | ✅ done |
 | 6 | FastAPI service, observability, Docker, deployment | ✅ done |
-
-## Quickstart
-
-Requires Python 3.11+.
-
-```bash
-git clone https://github.com/Thrya29/Adaptive-Parallelism-and-Task-Scheduling-for-LangGraph-Agents.git
-cd Adaptive-Parallelism-and-Task-Scheduling-for-LangGraph-Agents
-python -m venv .venv
-# Windows: .venv\Scripts\activate    macOS/Linux: source .venv/bin/activate
-pip install -e ".[dev,anthropic,experiments,api,observability]"
-apsched info
-```
-
-### With or without an API key — both work
-
-| You have… | What happens |
-|---|---|
-| **No API key** | Runs on a deterministic **mock LLM** that simulates realistic latency, token usage and failures. Free, offline, reproducible. |
-| **An Anthropic API key** | Put it in `.env` (copy from `.env.example`) as `ANTHROPIC_API_KEY=...`; real Claude calls are used automatically. |
-
-Control it explicitly with `APSCHED_LLM_PROVIDER` (`auto` | `mock` | `anthropic`) or per command:
-
-```bash
-apsched --provider mock info
-```
-
-### Run the agent
-
-```bash
-apsched run "Research the EV markets of India, China and Germany, then compare their growth and risks, then write a short investment summary"
-apsched run --strategy sequential "..."     # or static_parallel / eager_parallel baselines
-apsched run --json "..."                    # full machine-readable result
-```
-
-Example output (mock LLM, no key; mock latencies run at 0.1x wall-clock):
-
-```
-Plan (7 tasks, attempts=1):
-  [retrieval ] s1_1: Research the EV markets of India
-  [retrieval ] s1_2: Research the EV markets of China
-  [retrieval ] s1_3: Research the EV markets of Germany
-  [reasoning ] s2_1 <- s1_1, s1_2, s1_3: compare their growth
-  [reasoning ] s2_2 <- s1_1, s1_2, s1_3: compare their risks
-  [reasoning ] s3_1 <- s2_1, s2_2: write a short investment summary
-  [synthesis ] final <- s3_1: Combine the results into the final answer to the request.
-
-Strategy: adaptive -> adaptive[k=3,fused]
-  estimated work W=41.2s, critical path S=25.2s, parallelism W/S=1.63
-  candidate                    mean      p95    cost $  calls   succ
-  adaptive[k=3]               30.7s    52.4s   0.01689    7.1  1.000
- *adaptive[k=3,fused]         30.7s    53.2s   0.01681    6.2  1.000
-  adaptive[k=2]               32.5s    53.8s   0.01689    7.1  1.000
-  adaptive[k=1]               41.7s    62.3s   0.01690    7.1  1.000
-  ...
-
-Execution timeline:
-  s1_1              |#######                                                     |   0.37s completed
-  s1_2              |##########                                                  |   0.54s completed
-  s1_3              |###############                                             |   0.83s completed
-  s2_1              |               ######                                       |   0.34s completed
-  s2_2              |               ##############                               |   0.81s completed
-  fused:s3_1..final |                             ###############################|   1.77s completed
-
-Metrics: wall-clock 4.42s (plan 0.86s, select 0.13s, execute 3.40s, synthesize 0.00s)
-         7 model calls, 4228 in / 3247 out tokens, ~$0.02046, peak concurrency 3, success=yes
-```
-
-The selector ran the three lookups concurrently (k = 3, the plan's width) and fused the final
-chain `s3_1 → final` into one call, saving a model call at no latency cost.
-
-### Run it as a service
-
-```bash
-apsched serve --port 8080                     # or: docker compose up --build  (API + Prometheus)
-curl -X POST localhost:8080/v1/runs -H 'content-type: application/json'   -d '{"request": "Compare PostgreSQL, MySQL and SQLite, then recommend one"}'
-curl -N -X POST localhost:8080/v1/runs/stream -H 'content-type: application/json'   -d '{"request": "Research A, B and C, then compare them"}'   # live Server-Sent Events
-```
-
-JSON and streaming endpoints, health/readiness probes, Prometheus metrics, OpenTelemetry traces
-(one span per task: the trace *is* the schedule), structured JSON logs with request ids, API-key
-auth, admission control and timeouts. Non-root Docker image, docker-compose, Kubernetes manifest
-and Cloud Run instructions: [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
-
-### Use it as a library
-
-```python
-import asyncio
-from adaptive_scheduler.agent import AdaptiveAgent, Strategy
-from adaptive_scheduler.config import Settings
-
-agent = AdaptiveAgent.from_settings(Settings())  # mock or Anthropic, per your settings
-result = asyncio.run(agent.arun("your request", strategy=Strategy.ADAPTIVE))
-print(result.answer, result.metrics, result.decision.config_name)
-```
-
-API keys are read only from the environment / `.env` (git-ignored) and are never logged.
-Note: API keys come from [console.anthropic.com](https://console.anthropic.com) and are separate
-from a Claude.ai subscription.
+| 7 | Live dashboard, user manual, video walkthrough | ✅ done |
 
 ## Design overview
 
@@ -312,7 +352,8 @@ src/adaptive_scheduler/
   bench/        workload families, environment conditions, dependency-blind baseline,
                 experiment runner, statistics (bootstrap, Wilcoxon, Holm), report & figures,
                 live validation harness, prequential replay
-  api/          FastAPI service: JSON + SSE endpoints, auth, admission control, timeouts
+  api/          FastAPI service: JSON + SSE endpoints, auth, admission control, timeouts,
+                and the live dashboard (static/dashboard.html)
   observability/ Prometheus metrics, OpenTelemetry spans, JSON logging (all from run events)
   events.py     typed run events: the single source for streaming, metrics and traces
   report.py     text rendering of a run (plan, candidate table, Gantt timeline, metrics)
@@ -322,7 +363,9 @@ tests/
   unit/         hand-checked examples
   property/     Hypothesis invariants over thousands of random DAGs
   integration/  end-to-end agent runs on the mock LLM; live Anthropic test (`pytest -m live`)
-docs/           architecture, deployment guide; results/ holds benchmark data and figures
+docs/           user manual, research report, architecture, deployment guide;
+                results/ holds benchmark data; media/ holds the video, GIF and screenshots
+scripts/        record_demo.py (record a real run) and make_media.py (rebuild all media)
 deploy/         Prometheus config, Kubernetes manifest
 Dockerfile, docker-compose.yml
 ```

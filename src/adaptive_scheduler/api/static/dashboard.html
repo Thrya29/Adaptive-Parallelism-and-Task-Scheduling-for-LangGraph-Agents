@@ -1,0 +1,528 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Adaptive Scheduler Dashboard</title>
+<style>
+  :root {
+    --bg: #f6f6f4; --panel: #ffffff; --ink: #0b0b0b; --ink2: #52514e; --ink3: #8a8983;
+    --line: #e4e3df; --grid: #eeede9; --accent: #2a78d6; --accent-soft: #e3eefb;
+    --ok: #0ca30c; --run: #2a78d6; --fail: #d03b3b; --skip: #b9b8b2; --wait: #d9d8d3;
+    --s-sequential: #eb6834; --s-static: #1baf7a; --s-eager: #eda100; --s-adaptive: #2a78d6;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #121211; --panel: #1a1a19; --ink: #f0efec; --ink2: #c3c2b7; --ink3: #8f8e86;
+      --line: #2e2e2b; --grid: #262624; --accent: #3987e5; --accent-soft: #1f2d40;
+      --ok: #2fbf4f; --run: #3987e5; --fail: #e66767; --skip: #55554f; --wait: #3a3a36;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #121211; --panel: #1a1a19; --ink: #f0efec; --ink2: #c3c2b7; --ink3: #8f8e86;
+    --line: #2e2e2b; --grid: #262624; --accent: #3987e5; --accent-soft: #1f2d40;
+    --ok: #2fbf4f; --run: #3987e5; --fail: #e66767; --skip: #55554f; --wait: #3a3a36;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink);
+         font: 14px/1.45 "Segoe UI", system-ui, -apple-system, sans-serif; }
+  header { display: flex; align-items: center; gap: 16px; padding: 14px 24px;
+           border-bottom: 1px solid var(--line); background: var(--panel); flex-wrap: wrap; }
+  header h1 { font-size: 18px; margin: 0; font-weight: 600; }
+  header .sub { color: var(--ink2); font-size: 13px; }
+  .badge { font-size: 12px; padding: 3px 9px; border-radius: 999px; border: 1px solid var(--line);
+           color: var(--ink2); white-space: nowrap; }
+  .badge b { color: var(--ink); }
+  .spacer { flex: 1; }
+  form { display: flex; gap: 10px; padding: 14px 24px; flex-wrap: wrap; align-items: center; }
+  input[type=text], select, input[type=password] {
+    font: inherit; color: var(--ink); background: var(--panel); border: 1px solid var(--line);
+    border-radius: 8px; padding: 9px 12px; }
+  #request { flex: 1; min-width: 280px; }
+  button { font: inherit; font-weight: 600; border-radius: 8px; padding: 9px 16px; cursor: pointer;
+           border: 1px solid var(--accent); background: var(--accent); color: #fff; }
+  button.secondary { background: transparent; color: var(--accent); }
+  button:disabled { opacity: .5; cursor: default; }
+  main { display: grid; gap: 16px; padding: 0 24px 24px;
+         grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr); }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 12px;
+           padding: 14px 16px; min-width: 0; }
+  .panel h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .06em; margin: 0 0 4px;
+              color: var(--ink2); font-weight: 600; }
+  .panel .hint { color: var(--ink3); font-size: 12px; margin: 0 0 10px; }
+  .wide { grid-column: 1 / -1; }
+  svg text { fill: var(--ink); }
+  .muted { color: var(--ink3); }
+  /* decision */
+  .chosen { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; margin: 6px 0 10px; }
+  .chosen .cfg { font-size: 22px; font-weight: 700; color: var(--accent); }
+  .facts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 12px; }
+  .fact { background: var(--bg); border-radius: 8px; padding: 8px 10px; }
+  .fact .k { color: var(--ink2); font-size: 12px; }
+  .fact .v { font-size: 18px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; font-size: 13px; }
+  th, td { text-align: right; padding: 5px 6px; border-bottom: 1px solid var(--grid); }
+  th:first-child, td:first-child { text-align: left; }
+  th { color: var(--ink2); font-weight: 600; font-size: 12px; }
+  tr.pick td { background: var(--accent-soft); font-weight: 600; }
+  /* metrics */
+  .tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  .tile { background: var(--bg); border-radius: 10px; padding: 10px 12px; }
+  .tile .k { color: var(--ink2); font-size: 12px; }
+  .tile .v { font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .tile .v small { font-size: 13px; color: var(--ink2); font-weight: 500; }
+  #answer { white-space: pre-wrap; max-height: 210px; overflow: auto; font-size: 13px;
+            background: var(--bg); border-radius: 8px; padding: 10px 12px; margin: 0; }
+  .legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12px; color: var(--ink2); margin-bottom: 6px; }
+  .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 5px;
+              vertical-align: -1px; }
+  .phases { display: flex; gap: 6px; margin-bottom: 8px; flex-wrap: wrap; }
+  .phase { font-size: 12px; padding: 3px 10px; border-radius: 999px; background: var(--bg); color: var(--ink3); }
+  .phase.on { background: var(--accent); color: #fff; }
+  .phase.done { background: var(--accent-soft); color: var(--accent); }
+  #status { color: var(--ink2); font-size: 13px; }
+  #compareWrap { display: none; }
+  @media (max-width: 900px) { main { grid-template-columns: 1fr; } .facts, .tiles { grid-template-columns: repeat(2, 1fr); } }
+  @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .55; } }
+  .running { animation: pulse 1.1s ease-in-out infinite; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Adaptive Scheduler</h1>
+  <span class="sub">decides, per request, which tasks run in parallel and which wait</span>
+  <span class="spacer"></span>
+  <span class="badge" id="backend">backend: <b>…</b></span>
+  <span class="badge" id="version"></span>
+</header>
+
+<form id="runForm">
+  <input id="request" type="text" autocomplete="off"
+         value="Research the EV markets of India, China and Germany, then compare their growth and risks, then write a short investment summary">
+  <select id="strategy" title="Execution strategy">
+    <option value="adaptive">adaptive (recommended)</option>
+    <option value="sequential">sequential</option>
+    <option value="static_parallel">static parallel</option>
+    <option value="eager_parallel">eager parallel</option>
+  </select>
+  <input id="apikey" type="password" placeholder="API key (if required)" style="width:170px">
+  <button id="runBtn" type="submit">Run</button>
+  <button id="compareBtn" type="button" class="secondary" title="Run the same request under all four strategies">Compare strategies</button>
+  <span id="status"></span>
+</form>
+
+<main>
+  <section class="panel">
+    <h2>1 · Plan</h2>
+    <p class="hint">The request decomposed into tasks. Arrows are dependencies: a task starts only after the tasks pointing to it have finished. Tasks in the same column can run at the same time.</p>
+    <div class="phases" id="phases"></div>
+    <svg id="dag" width="100%" height="300" role="img" aria-label="Task dependency graph"></svg>
+    <div class="legend">
+      <span><i style="background:var(--wait)"></i>waiting</span>
+      <span><i style="background:var(--run)"></i>running</span>
+      <span><i style="background:var(--ok)"></i>done</span>
+      <span><i style="background:var(--fail)"></i>failed</span>
+      <span><i style="background:var(--skip)"></i>cancelled</span>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>2 · Decision</h2>
+    <p class="hint">Before running anything, the scheduler simulates each candidate configuration many times and picks the best trade-off of latency, tail latency and cost.</p>
+    <div id="decision"><p class="muted">Run a request to see the decision.</p></div>
+  </section>
+
+  <section class="panel wide">
+    <h2>3 · Execution timeline</h2>
+    <p class="hint">Each bar is one model call, from start to finish. Overlapping bars ran in parallel; the dashed line is the predicted finish time.</p>
+    <svg id="gantt" width="100%" height="200" role="img" aria-label="Execution timeline"></svg>
+  </section>
+
+  <section class="panel">
+    <h2>4 · Metrics</h2>
+    <p class="hint">Measured for this run.</p>
+    <div class="tiles" id="tiles"></div>
+  </section>
+
+  <section class="panel">
+    <h2>5 · Answer</h2>
+    <p class="hint" id="answerHint">The final result returned to the user.</p>
+    <pre id="answer" class="muted">—</pre>
+  </section>
+
+  <section class="panel wide" id="compareWrap">
+    <h2>Strategy comparison</h2>
+    <p class="hint">The same request executed under every strategy. Shorter is better.</p>
+    <svg id="compare" width="100%" height="190" role="img" aria-label="Latency by strategy"></svg>
+  </section>
+</main>
+
+<script>
+"use strict";
+// ---------------------------------------------------------------- state
+const STRATEGY_COLOR = { sequential: "--s-sequential", static_parallel: "--s-static",
+                         eager_parallel: "--s-eager", adaptive: "--s-adaptive" };
+let info = { llm_provider: "?", mock_time_scale: 1 };
+let run = null;            // { events: [], offset, replay }
+let compareResults = [];
+let frameReq = null;
+
+const $ = (id) => document.getElementById(id);
+const css = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+const fmt = (x, d = 1) => (x == null || isNaN(x)) ? "—" : Number(x).toFixed(d);
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const NS = "http://www.w3.org/2000/svg";
+function el(tag, attrs = {}, text) {
+  const n = document.createElementNS(NS, tag);
+  for (const [k, v] of Object.entries(attrs)) n.setAttribute(k, v);
+  if (text != null) n.textContent = text;
+  return n;
+}
+
+// Derive everything the page shows from the event list, as of server time `now`.
+function derive(events, now) {
+  const s = { start: null, plan: null, decision: null, groups: {}, tasks: {}, metrics: null,
+              error: null, result: null, phase: "idle" };
+  for (const e of events) {
+    if (now != null && e.ts > now) break;
+    const d = e.data || {};
+    switch (e.type) {
+      case "run_started": s.start = e.ts; s.phase = "plan"; break;
+      case "plan_ready": s.plan = d; s.phase = "decide"; break;
+      case "decision": s.decision = d; s.groups = d.groups || {}; s.phase = "execute"; break;
+      case "task_started": s.tasks[d.task_id] = { ...(s.tasks[d.task_id] || {}), id: d.task_id,
+                                                   type: d.task_type, start: e.ts, status: "running" }; break;
+      case "task_finished": s.tasks[d.task_id] = { ...(s.tasks[d.task_id] || {}), id: d.task_id,
+                                                    type: d.task_type, end: e.ts, status: d.status,
+                                                    attempts: d.attempts, tin: d.input_tokens,
+                                                    tout: d.output_tokens }; break;
+      case "run_finished": s.metrics = d.metrics; s.phase = "done"; s.end = e.ts; break;
+      case "run_failed": s.error = d.error; s.phase = "done"; s.end = e.ts; break;
+      case "result": s.result = d; break;
+    }
+  }
+  if (s.phase === "execute" && s.plan) {
+    const ids = Object.keys(s.groups);
+    if (ids.length && ids.every((g) => s.tasks[g] && s.tasks[g].end)) s.phase = "synthesize";
+  }
+  return s;
+}
+
+// Status of an original plan task (fused tasks share the status of their group).
+function taskStatus(s, id) {
+  for (const [gid, members] of Object.entries(s.groups)) {
+    if (members.includes(id)) return (s.tasks[gid] || {}).status || "waiting";
+  }
+  return (s.tasks[id] || {}).status || "waiting";
+}
+
+// ---------------------------------------------------------------- rendering
+function renderPhases(s) {
+  const order = ["plan", "decide", "execute", "synthesize", "done"];
+  const labels = { plan: "Plan", decide: "Decide", execute: "Execute", synthesize: "Answer", done: "Done" };
+  const cur = order.indexOf(s.phase);
+  $("phases").innerHTML = order.map((p, i) =>
+    `<span class="phase ${i < cur ? "done" : i === cur ? "on" : ""}">${labels[p]}</span>`).join("");
+}
+
+function renderDag(s) {
+  const svg = $("dag");
+  svg.innerHTML = "";
+  if (!s.plan) { svg.appendChild(el("text", { x: 12, y: 30, class: "muted", fill: css("--ink3") }, "No plan yet.")); return; }
+  const tasks = s.plan.tasks;
+  const level = {};
+  const byId = Object.fromEntries(tasks.map((t) => [t.id, t]));
+  const lv = (id) => level[id] ?? (level[id] = byId[id].depends_on.length
+    ? 1 + Math.max(...byId[id].depends_on.map(lv)) : 0);
+  tasks.forEach((t) => lv(t.id));
+  const cols = Math.max(...Object.values(level)) + 1;
+  const perCol = {};
+  tasks.forEach((t) => (perCol[level[t.id]] = (perCol[level[t.id]] || []).concat(t.id)));
+  const maxRows = Math.max(...Object.values(perCol).map((c) => c.length));
+  const W = svg.clientWidth || 800, nodeW = Math.min(190, (W - 40) / cols - 30), nodeH = 46;
+  const H = Math.max(140, maxRows * (nodeH + 16) + 20);
+  svg.setAttribute("height", H);
+  const colX = (c) => 20 + c * ((W - 40 - nodeW) / Math.max(1, cols - 1 || 1));
+  const pos = {};
+  for (const [c, ids] of Object.entries(perCol)) {
+    const total = ids.length * nodeH + (ids.length - 1) * 16;
+    ids.forEach((id, i) => (pos[id] = { x: cols === 1 ? (W - nodeW) / 2 : colX(+c),
+                                        y: (H - total) / 2 + i * (nodeH + 16) }));
+  }
+  const defs = el("defs");
+  const marker = el("marker", { id: "arrow", viewBox: "0 0 10 10", refX: 9, refY: 5, markerWidth: 7,
+                                markerHeight: 7, orient: "auto-start-reverse" });
+  marker.appendChild(el("path", { d: "M0,0 L10,5 L0,10 z", fill: css("--ink3") }));
+  defs.appendChild(marker);
+  svg.appendChild(defs);
+  for (const t of tasks) for (const dep of t.depends_on) {
+    const a = pos[dep], b = pos[t.id];
+    const x1 = a.x + nodeW, y1 = a.y + nodeH / 2, x2 = b.x - 4, y2 = b.y + nodeH / 2, mx = (x1 + x2) / 2;
+    svg.appendChild(el("path", { d: `M${x1},${y1} C${mx},${y1} ${mx},${y2} ${x2},${y2}`, fill: "none",
+                                 stroke: css("--ink3"), "stroke-width": 1.5, "marker-end": "url(#arrow)" }));
+  }
+  const fill = { waiting: "--wait", running: "--run", completed: "--ok", failed: "--fail", cancelled: "--skip" };
+  for (const t of tasks) {
+    const st = taskStatus(s, t.id), p = pos[t.id];
+    const g = el("g", st === "running" ? { class: "running" } : {});
+    g.appendChild(el("rect", { x: p.x, y: p.y, width: nodeW, height: nodeH, rx: 9,
+                               fill: css(fill[st] || "--wait") }));
+    const light = st === "waiting" || st === "cancelled";
+    const color = light ? css("--ink") : "#ffffff";
+    g.appendChild(el("text", { x: p.x + 10, y: p.y + 19, "font-size": 13, "font-weight": 600, fill: color },
+                     t.id.length > 22 ? t.id.slice(0, 21) + "…" : t.id));
+    g.appendChild(el("text", { x: p.x + 10, y: p.y + 36, "font-size": 11, fill: color, opacity: .9 },
+                     t.task_type));
+    const title = el("title", {}, `${t.id} (${t.task_type})\n${t.instruction}`);
+    g.appendChild(title);
+    svg.appendChild(g);
+  }
+}
+
+function renderDecision(s) {
+  const d = s.decision;
+  if (!d) { $("decision").innerHTML = `<p class="muted">${s.plan ? "Simulating candidate configurations…" : "Run a request to see the decision."}</p>`; return; }
+  const scale = info.llm_provider === "mock" ? info.mock_time_scale : 1;
+  const rows = (d.candidates || []).slice().sort((a, b) => a.score - b.score).map((c) =>
+    `<tr class="${c.name === d.config_name ? "pick" : ""}"><td>${esc(c.name)}${c.name === d.config_name ? " ◀ chosen" : ""}</td>
+     <td>${fmt(c.mean_latency_s * scale)}</td><td>${fmt(c.p95_latency_s * scale)}</td>
+     <td>${fmt(c.cost_usd * 1000, 2)}</td><td>${fmt(c.calls)}</td></tr>`).join("");
+  const why = d.workers === 1 ? "No useful parallelism: run tasks one after another."
+    : `Run up to ${d.workers ?? "all"} tasks at once${d.fuse ? ", merging chained steps into single calls" : ""}.`;
+  $("decision").innerHTML = `
+    <div class="chosen"><span class="cfg">${esc(d.config_name)}</span><span class="muted">${esc(why)}</span></div>
+    <div class="facts">
+      <div class="fact"><div class="k">total work W</div><div class="v">${fmt(d.total_work_s * scale)} s</div></div>
+      <div class="fact"><div class="k">critical path S</div><div class="v">${fmt(d.span_s * scale)} s</div></div>
+      <div class="fact"><div class="k">parallelism W / S</div><div class="v">${fmt(d.parallelism, 2)}×</div></div>
+    </div>
+    ${rows ? `<table><thead><tr><th>candidate</th><th>mean s</th><th>p95 s</th><th>cost m$</th><th>calls</th></tr></thead><tbody>${rows}</tbody></table>`
+           : `<p class="muted">Fixed strategy selected manually: no prediction needed.</p>`}`;
+}
+
+function renderGantt(s, now) {
+  const svg = $("gantt");
+  svg.innerHTML = "";
+  const rows = Object.values(s.tasks).filter((t) => t.start != null);
+  if (!s.start || !rows.length) {
+    svg.setAttribute("height", 60);
+    svg.appendChild(el("text", { x: 12, y: 34, fill: css("--ink3") }, s.decision ? "Starting tasks…" : "No tasks running yet."));
+    return;
+  }
+  rows.sort((a, b) => a.start - b.start);
+  const t0 = rows[0].start;
+  const end = s.end ?? now;
+  const scale = info.llm_provider === "mock" ? info.mock_time_scale : 1;
+  const predicted = s.decision && s.decision.predicted_latency_s != null ? s.decision.predicted_latency_s * scale : null;
+  const span = Math.max(end - t0, predicted || 0, 0.5) * 1.08;
+  const W = svg.clientWidth || 900, left = 230, right = 20, rowH = 26, top = 24;
+  const H = top + rows.length * rowH + 26;
+  svg.setAttribute("height", H);
+  const x = (t) => left + ((t - t0) / span) * (W - left - right);
+  const ticks = 6;
+  for (let i = 0; i <= ticks; i++) {
+    const t = (span * i) / ticks, xx = x(t0 + t);
+    svg.appendChild(el("line", { x1: xx, x2: xx, y1: top - 6, y2: H - 6, stroke: css("--grid") }));
+    svg.appendChild(el("text", { x: xx, y: 14, "font-size": 11, "text-anchor": "middle", fill: css("--ink3") }, `${fmt(t, 1)}s`));
+  }
+  const fill = { running: "--run", completed: "--ok", failed: "--fail", cancelled: "--skip" };
+  rows.forEach((r, i) => {
+    const y = top + i * rowH;
+    // A fused call executes several plan tasks in one model call: name them all.
+    const members = s.groups[r.id] || [r.id];
+    const label = members.length > 1 ? members.map((m) => m.split("_")[0]).join(" + ") + " (fused)" : r.id;
+    const text = el("text", { x: left - 10, y: y + 16, "font-size": 12, "text-anchor": "end", fill: css("--ink2") },
+                    label.length > 32 ? label.slice(0, 31) + "…" : label);
+    text.appendChild(el("title", {}, members.join(" + ")));
+    svg.appendChild(text);
+    const x1 = x(r.start), x2 = Math.max(x(r.end ?? end), x1 + 3);
+    const bar = el("rect", { x: x1, y: y + 4, width: x2 - x1, height: rowH - 9, rx: 4,
+                             fill: css(fill[r.status] || "--run") });
+    if (r.status === "running") bar.setAttribute("class", "running");
+    svg.appendChild(bar);
+    if (r.end != null && x2 - x1 > 46)
+      svg.appendChild(el("text", { x: x1 + 7, y: y + 17, "font-size": 11, fill: "#fff" }, `${fmt(r.end - r.start)}s`));
+  });
+  if (predicted) {
+    const px = x(t0 + predicted);
+    svg.appendChild(el("line", { x1: px, x2: px, y1: top - 6, y2: H - 16, stroke: css("--accent"),
+                                 "stroke-dasharray": "5 4", "stroke-width": 1.5 }));
+    svg.appendChild(el("text", { x: px + 5, y: H - 4, "font-size": 11, fill: css("--accent") }, "predicted finish"));
+  }
+  if (!s.end) {
+    const nx = x(now);
+    svg.appendChild(el("line", { x1: nx, x2: nx, y1: top - 6, y2: H - 6, stroke: css("--ink2"), "stroke-width": 1 }));
+  }
+}
+
+function renderTiles(s, now) {
+  const m = s.metrics;
+  const tasks = Object.values(s.tasks);
+  const calls = m ? m.model_calls
+    : tasks.reduce((a, t) => a + (t.attempts || 0) + (t.status === "running" ? 1 : 0), 0);
+  const tin = m ? m.input_tokens : tasks.reduce((a, t) => a + (t.tin || 0), 0);
+  const tout = m ? m.output_tokens : tasks.reduce((a, t) => a + (t.tout || 0), 0);
+  const elapsed = s.start ? ((s.end ?? now) - s.start) : null;
+  const tiles = [
+    ["wall-clock", `${fmt(elapsed)}<small> s</small>`],
+    ["model calls", calls ?? "—"],
+    ["peak concurrency", m ? m.peak_concurrency : tasks.filter((t) => t.status === "running").length || "—"],
+    ["input tokens", tin ? tin.toLocaleString() : "—"],
+    ["output tokens", tout ? tout.toLocaleString() : "—"],
+    ["result", m ? (m.success ? "✓ success" : "partial") : s.error ? "error" : s.start ? "…" : "—"],
+  ];
+  $("tiles").innerHTML = tiles.map(([k, v]) => `<div class="tile"><div class="k">${k}</div><div class="v">${v}</div></div>`).join("");
+}
+
+function renderAnswer(s) {
+  const r = s.result;
+  if (s.error) { $("answer").textContent = "Run failed: " + s.error; return; }
+  if (!r) { $("answer").textContent = "—"; $("answer").className = "muted"; return; }
+  let text = r.answer || "";
+  if (info.llm_provider === "mock") {
+    $("answerHint").textContent = "Mock LLM: the text is placeholder content of realistic length (add an API key for real answers).";
+    if (text.length > 600) text = text.slice(0, 600) + " …";
+  }
+  $("answer").className = "";
+  $("answer").textContent = text;
+}
+
+function renderCompare() {
+  if (!compareResults.length) return;
+  $("compareWrap").style.display = "block";
+  const svg = $("compare");
+  svg.innerHTML = "";
+  const W = svg.clientWidth || 900, left = 160, right = 90, rowH = 38, top = 10;
+  svg.setAttribute("height", top + compareResults.length * rowH + 10);
+  const max = Math.max(...compareResults.map((r) => r.latency));
+  const seq = compareResults.find((r) => r.strategy === "sequential");
+  compareResults.forEach((r, i) => {
+    const y = top + i * rowH, w = ((W - left - right) * r.latency) / max;
+    svg.appendChild(el("text", { x: left - 12, y: y + 22, "text-anchor": "end", "font-size": 13, fill: css("--ink") }, r.strategy.replace("_", " ")));
+    svg.appendChild(el("rect", { x: left, y: y + 6, width: Math.max(w, 2), height: rowH - 14, rx: 4,
+                                 fill: css(STRATEGY_COLOR[r.strategy] || "--accent") }));
+    const speed = seq ? ` · ${fmt(seq.latency / r.latency, 2)}×` : "";
+    svg.appendChild(el("text", { x: left + w + 8, y: y + 22, "font-size": 12, fill: css("--ink2") }, `${fmt(r.latency)} s${speed}`));
+  });
+}
+
+function render(now) {
+  if (!run) return;
+  const s = derive(run.events, now);
+  renderPhases(s); renderDag(s); renderDecision(s); renderGantt(s, now); renderTiles(s, now); renderAnswer(s);
+  renderCompare();
+  return s;
+}
+
+function loop() {
+  if (!run) return;
+  const now = run.replay ? run.replay.t0 + (performance.now() - run.replay.wall0) / 1000 * run.replay.speed
+                         : Date.now() / 1000 - (run.offset || 0);
+  const s = render(now);
+  const done = s && s.phase === "done" && (run.replay ? now > run.replay.last : true);
+  frameReq = done ? null : requestAnimationFrame(loop);
+}
+
+// ---------------------------------------------------------------- live runs
+async function streamRun(request, strategy) {
+  run = { events: [], offset: 0 };
+  compareResults = compareResults; // keep comparison while re-running
+  if (frameReq) cancelAnimationFrame(frameReq);
+  frameReq = requestAnimationFrame(loop);
+  const headers = { "content-type": "application/json" };
+  const key = $("apikey").value || sessionStorage.getItem("apsched-key");
+  if (key) { headers["x-api-key"] = key; sessionStorage.setItem("apsched-key", key); }
+  const resp = await fetch("/v1/runs/stream", { method: "POST", headers, body: JSON.stringify({ request, strategy }) });
+  if (!resp.ok) { const t = await resp.text(); throw new Error(`${resp.status}: ${t}`); }
+  const reader = resp.body.getReader(), dec = new TextDecoder();
+  let buf = "", final = null;
+  for (;;) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    buf += dec.decode(value, { stream: true }).replace(/\r\n/g, "\n");
+    let i;
+    while ((i = buf.indexOf("\n\n")) >= 0) {
+      const block = buf.slice(0, i); buf = buf.slice(i + 2);
+      const ev = {}; block.split("\n").forEach((l) => { const j = l.indexOf(": "); if (j > 0) ev[l.slice(0, j)] = l.slice(j + 2); });
+      if (!ev.event || !ev.data) continue;
+      const data = JSON.parse(ev.data);
+      if (ev.event === "result") { final = data; run.events.push({ type: "result", ts: run.events.at(-1)?.ts ?? 0, data }); }
+      else if (ev.event === "error") throw new Error(data.error);
+      else {
+        if (data.type === "run_started") run.offset = Date.now() / 1000 - data.ts;
+        run.events.push(data);
+      }
+    }
+  }
+  render(run.events.at(-1)?.ts);
+  return final;
+}
+
+async function onRun(e) {
+  e && e.preventDefault();
+  setBusy(true, "Running…");
+  try {
+    const r = await streamRun($("request").value, $("strategy").value);
+    setBusy(false, r ? `Finished in ${fmt(r.metrics.wall_clock_s)} s` : "");
+  } catch (err) { setBusy(false, "Error: " + err.message); }
+}
+
+async function onCompare() {
+  compareResults = [];
+  $("compareWrap").style.display = "block";
+  for (const strategy of ["sequential", "static_parallel", "eager_parallel", "adaptive"]) {
+    setBusy(true, `Comparing… running ${strategy.replace("_", " ")}`);
+    $("strategy").value = strategy;
+    try {
+      const r = await streamRun($("request").value, strategy);
+      if (r) compareResults.push({ strategy, latency: r.metrics.execution_s });
+      renderCompare();
+    } catch (err) { setBusy(false, "Error: " + err.message); return; }
+  }
+  setBusy(false, "Comparison finished (execution time per strategy).");
+}
+
+function setBusy(b, msg) {
+  $("runBtn").disabled = b; $("compareBtn").disabled = b; $("status").textContent = msg || "";
+}
+
+// ---------------------------------------------------------------- replay (recorded runs)
+// A recorded run is {events: [...], compare: [...]} as produced by GET-free recording tools.
+// ?at=<seconds> freezes the view at that moment (used to render documentation frames).
+function startReplay(rec, at, speed) {
+  run = { events: rec.events, replay: null };
+  compareResults = rec.compare || [];
+  const t0 = rec.events[0].ts, last = rec.events.at(-1).ts;
+  if (at != null) { render(t0 + at); return; }
+  run.replay = { t0, last, wall0: performance.now(), speed: speed || 1 };
+  frameReq = requestAnimationFrame(loop);
+}
+
+// ---------------------------------------------------------------- boot
+async function boot() {
+  const q = new URLSearchParams(location.search);
+  if (q.get("theme")) document.documentElement.dataset.theme = q.get("theme");
+  if (window.__REPLAY__) {
+    info = window.__REPLAY__.info || info;
+    renderInfo();
+    if (window.__REPLAY__.request) $("request").value = window.__REPLAY__.request;
+    if (window.__REPLAY__.strategy) $("strategy").value = window.__REPLAY__.strategy;
+    startReplay(window.__REPLAY__, q.has("at") ? parseFloat(q.get("at")) : null, parseFloat(q.get("speed") || "1"));
+    return;
+  }
+  try { info = await (await fetch("/v1/info")).json(); } catch { /* offline file view */ }
+  renderInfo();
+  $("runForm").addEventListener("submit", onRun);
+  $("compareBtn").addEventListener("click", onCompare);
+  run = { events: [] };
+  render(0);
+}
+function renderInfo() {
+  const p = info.llm_provider === "mock" ? `mock LLM (time ×${info.mock_time_scale})` : `${info.llm_provider} · ${info.model}`;
+  $("backend").innerHTML = `backend: <b>${esc(p)}</b>`;
+  $("version").textContent = info.version ? `v${info.version}` : "";
+}
+boot();
+</script>
+</body>
+</html>
