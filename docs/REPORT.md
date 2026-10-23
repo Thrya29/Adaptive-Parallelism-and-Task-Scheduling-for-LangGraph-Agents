@@ -7,8 +7,9 @@ in §9.*
 
 Multi-agent LLM systems often parallelize by default. A controlled study of 180 agent
 configurations found that this helps on parallelizable tasks but hurts on sequential ones
-([Kim et al., 2025][scaling]). We treat the choice as a scheduling problem instead: a request is
-decomposed into a task DAG, each task's latency and cost are estimated, and a Monte Carlo selector
+([Kim et al., 2025][scaling]). Recent systems decide it with a token-cost rule per DAG layer
+([SquidAgent][squid]), or parallelize every independent call ([LLMCompiler][llmcompiler]). We
+study a complementary, wall-clock-oriented approach. A request is decomposed into a task DAG, each task's latency and cost are estimated, and a Monte Carlo selector
 predicts, *per request*, how much concurrency to use and whether to fuse chained calls. The
 scheduler executes with critical-path priority, inside a LangGraph workflow.
 
@@ -38,19 +39,75 @@ LLM-specific costs:
   makes answers wrong;
 * fixed per-call overhead, which makes many tiny calls expensive.
 
-## 2. Related work
+## 2. Related work and positioning
+
+**Whether, and how much, to parallelize.**
 
 * **Scaling agent systems** ([Kim et al., 2025][scaling]; [Google Research, 2026][scaling-blog]).
   Across 180 configurations, centralized coordination improved a parallelizable benchmark by
   80.9%, every multi-agent variant degraded a sequential planning benchmark by 39–70%, and
   independent agents amplified errors 17.2×. A predictive model chose the best architecture for
-  87% of held-out configurations. Our work makes the choice per request with an explicit
-  scheduling model.
-* **LLMCompiler** ([Kim et al., 2024][llmcompiler]) plans function calls as a DAG and executes them
-  eagerly in parallel, reporting up to 3.7× latency reduction. It is our `eager_parallel` baseline.
-* **List scheduling and HEFT** (Graham, 1969; Topcuoglu et al., 2002). These give the critical-path
-  priority (upward rank), the `W/k + (1 − 1/k)·S` bound we verify, and the timing anomalies that
-  rule out assuming monotonicity.
+  87% of held-out configurations. Here the choice is made at the level of agent architecture.
+* **SquidAgent** ([Lin et al., NeurIPS 2026][squid]) is the closest work to ours. It decides
+  *per topological layer* of the task DAG whether to parallelize. A layer is parallelized only when
+  its critical-path cost plus the overheads of parallel workers (re-exploration of context and
+  alignment of independent outputs) is below the serial cost, with costs measured in *predicted
+  output tokens*. It also reduces those overheads by forking workers from the orchestrator's
+  session and pre-generating a shared convention block. The authors report a 2.6× mean wall-time
+  speedup over Claude Code.
+* **TIPEX** ([Xu, Tian & Jiang, ICML 2026][tipex]) separates *structural* parallelism (concurrency
+  within one solution path) from *replica* parallelism (several complete solution paths). It finds
+  that "overly aggressive parallel strategies do not necessarily yield better performance".
+* **M1-Parallel** ([2025][m1par]) runs several multi-agent teams concurrently and stops at the first
+  to finish, trading cost for latency.
+
+**Planning parallelizable task graphs.**
+
+* **LLMCompiler** ([Kim et al., ICML 2024][llmcompiler]) plans function calls as a DAG and
+  dispatches every ready task immediately, reporting up to 3.7× latency reduction. Our
+  `eager_parallel` baseline re-implements its execution policy. It is not the original system.
+* **Plan-over-Graph** ([Zhang et al., 2025][pog]) and **GAP** ([Wu et al., 2025][gap]) train models
+  to produce parallelizable task graphs, GAP with reinforcement learning. We use an off-the-shelf
+  model with structured output and do not study planning quality.
+
+**Scheduling inside the serving engine.** **Parrot** ([Lin et al., OSDI 2024][parrot]),
+**Ayo** ([Tan et al., 2025][ayo]) and **Autellix** ([Luo et al., 2025][autellix]) expose
+application dependency graphs to the LLM serving system, so it can prioritize critical requests
+and programs across many users. **PASTE / B-PASTE** ([2026][paste], [2026][bpaste]) execute tool
+calls speculatively; B-PASTE uses a HEFT-inspired critical-path objective. These systems operate
+*inside* the inference engine. We schedule *within one request, on the client side*, against a
+hosted API whose engine we do not control.
+
+**Classical scheduling.** List scheduling and HEFT (Graham, 1969; Topcuoglu et al., 2002) supply
+the critical-path priority (upward rank), the `W/k + (1 − 1/k)·S` bound we verify, and the timing
+anomalies that rule out assuming monotonicity. For LLM agent teams, [Tan, Wilson & Lu (2026)][cpteams]
+measured critical-path vs FIFO makespan gains of only 0.51–0.96% on normalized-work schedules.
+That is consistent with our modest H3 result (−2.4% mean latency).
+
+**What this work adds.** Prior work establishes three things:
+* parallelism must be applied selectively ([Kim et al.][scaling], [SquidAgent][squid], [TIPEX][tipex]);
+* how to plan and execute task DAGs ([LLMCompiler][llmcompiler], [Plan-over-Graph][pog], [GAP][gap]);
+* how to schedule agent programs inside serving engines ([Parrot][parrot], [Ayo][ayo], [Autellix][autellix]).
+
+Our contribution is narrower and mainly empirical:
+
+1. **A wall-clock, distribution-aware decision under provider limits.** A client-side scheduler
+   predicts the mean, P95 and cost of every candidate concurrency level by Monte Carlo simulation.
+   The simulation models explicit provider concurrency and rate limits, retries and contention,
+   and includes exact DP fusion of chained calls. This complements SquidAgent's token-denominated
+   per-layer rule.
+2. **Calibration against real API calls.** We report how real LLM latency behaves (close to linear
+   in output length; variance dominated by output length) and three estimator failure modes found
+   in live data, each fixed and confirmed on fresh calls.
+3. **Evaluation methodology and a negative result.** Selection, evaluation and oracle use separate
+   random seeds, and forecasts are judged by calibration metrics. A simple rule,
+   `k = min(provider limit, plan width)` with critical-path priority, captures most of the latency
+   benefit.
+4. **An open, tested, production-grade implementation** on LangGraph, with a streaming API,
+   dashboard and observability.
+
+We have **not** compared against SquidAgent or the original LLMCompiler implementation on shared
+benchmarks. That comparison is the most important next step (§8).
 
 ## 3. Method
 
@@ -197,6 +254,11 @@ Each of these was found by the experiments themselves, fixed, and covered by a t
 
 ## 8. Limitations and future work
 
+* **No head-to-head comparison with the closest systems.** We did not run SquidAgent or the
+  original LLMCompiler code; `eager_parallel` reproduces only LLMCompiler's execution policy. A
+  comparison on shared benchmarks with verifiable answers (for example LLMCompiler's ParallelQA,
+  HotpotQA or GAIA) is the first priority.
+
 * **Small live scale.** One model, 10 requests and 160 executions. Real plans were narrow (≤ 4
   branches) and never hit rate limits, so the regimes where adaptivity matters most (tight limits,
   wide plans, heterogeneous branches) are shown in simulation, not yet live.
@@ -226,3 +288,14 @@ Raw data: `docs/results/runs.csv.gz` (simulation), `docs/results/live*/runs.csv`
 [scaling]: https://arxiv.org/abs/2512.08296
 [scaling-blog]: https://research.google/blog/towards-a-science-of-scaling-agent-systems-when-and-why-agent-systems-work/
 [llmcompiler]: https://arxiv.org/abs/2312.04511
+[squid]: https://arxiv.org/abs/2610.08647
+[tipex]: https://arxiv.org/abs/2608.05791
+[m1par]: https://arxiv.org/abs/2507.08944
+[pog]: https://arxiv.org/abs/2502.14563
+[gap]: https://arxiv.org/abs/2510.25320
+[parrot]: https://www.usenix.org/conference/osdi24/presentation/lin-chaofan
+[ayo]: https://www.researchgate.net/publication/390315200_Towards_End-to-End_Optimization_of_LLM-based_Applications_with_Ayo
+[autellix]: https://arxiv.org/abs/2502.13965
+[paste]: https://arxiv.org/abs/2603.18897
+[bpaste]: https://arxiv.org/abs/2604.16469
+[cpteams]: https://journal.jci.co.id/jitie/article/view/598

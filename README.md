@@ -162,9 +162,33 @@ independent agents amplified errors 17.2× ([Kim et al., 2025][scaling]). LLMCom
 planning function calls as a DAG and executing them in parallel can cut latency up to 3.7×
 ([Kim et al., 2024][llmcompiler]) — but it parallelizes eagerly.
 
-This project asks the next question: **when** is parallelism worth it, and **how much**? Instead of
-adding agents, it treats agent execution as a classical scheduling problem with LLM-specific costs
-(rate limits, duplicated context, merge overhead, per-call latency).
+This project treats agent execution as a scheduling problem with LLM-specific costs: rate limits,
+duplicated context, merge overhead and per-call latency.
+
+### Related work and what this project adds
+
+This sits in an active research area, and the question of *when* to parallelize agent work is not
+new:
+* **SquidAgent** ([NeurIPS 2026][squid]) decides per DAG layer whether parallel execution is worth
+  its overheads, using a cost rule in predicted output tokens.
+* **TIPEX** ([ICML 2026][tipex]) finds that aggressive parallelism does not necessarily help.
+* **LLMCompiler** ([ICML 2024][llmcompiler]), **Plan-over-Graph** ([2025][pog]) and **GAP**
+  ([2025][gap]) plan and run task DAGs in parallel.
+* **Parrot** ([OSDI 2024][parrot]), **Ayo** ([2025][ayo]) and **Autellix** ([2025][autellix])
+  schedule agent programs inside the serving engine.
+
+This project contributes a complementary, mostly empirical piece:
+* a client-side scheduler that predicts the **wall-clock latency distribution (mean and P95) and
+  cost** of each concurrency level by Monte Carlo simulation **under explicit provider rate
+  limits**, with exact DP fusion of chained calls;
+* **online calibration validated on real API calls**, including three estimator failure modes
+  found and fixed;
+* a careful evaluation methodology, with an **honest negative result**: a simple rule,
+  `k = min(rate limit, plan width)`, captures most of the latency gain;
+* an open, tested, production-grade implementation.
+
+A head-to-head comparison with SquidAgent and the original LLMCompiler is future work. See
+[REPORT.md §2](docs/REPORT.md#2-related-work-and-positioning) for details.
 
 ## Status
 
@@ -395,6 +419,14 @@ duration vector, worker count `k` and priority policy:
 - H. Topcuoglu, S. Hariri, M.-Y. Wu. *Performance-Effective and Low-Complexity Task Scheduling for
   Heterogeneous Computing* (HEFT). IEEE TPDS, 2002.
 - R. L. Graham. *Bounds on Multiprocessing Timing Anomalies.* SIAM J. Appl. Math., 1969.
+- Y. Lin et al. *SquidAgent: Parallelize Wisely, Coordinate Efficiently.* NeurIPS 2026. [arXiv:2610.08647][squid]
+- Z. Xu, H. Tian, H. Jiang. *A Two-Tier Perspective on Inference-Time Parallelism in Multi-Agent LLM Systems* (TIPEX). ICML 2026. [arXiv:2608.05791][tipex]
+- S. Zhang et al. *Plan-over-Graph: Towards Parallelable LLM Agent Schedule.* 2025. [arXiv:2502.14563][pog]
+- J. Wu et al. *GAP: Graph-Based Agent Planning with Parallel Tool Use and Reinforcement Learning.* 2025. [arXiv:2510.25320][gap]
+- C. Lin et al. *Parrot: Efficient Serving of LLM-based Applications with Semantic Variable.* OSDI 2024. [link][parrot]
+- Luo et al. *Autellix: An Efficient Serving Engine for LLM Agents as General Programs.* 2025. [arXiv:2502.13965][autellix]
+- Tan et al. *Towards End-to-End Optimization of LLM-based Applications with Ayo.* 2025. [link][ayo]
+- S. Tan, E. Wilson, V. Lu. *Critical-Path and Uncertainty-Aware Dynamic Scheduling for Resource-Constrained LLM Multi-Agent Teams.* JITIE, 2026. [link][cpteams]
 
 ## License
 
@@ -403,3 +435,14 @@ duration vector, worker count `k` and priority policy:
 [scaling]: https://arxiv.org/abs/2512.08296
 [scaling-blog]: https://research.google/blog/towards-a-science-of-scaling-agent-systems-when-and-why-agent-systems-work/
 [llmcompiler]: https://arxiv.org/abs/2312.04511
+[squid]: https://arxiv.org/abs/2610.08647
+[tipex]: https://arxiv.org/abs/2608.05791
+[m1par]: https://arxiv.org/abs/2507.08944
+[pog]: https://arxiv.org/abs/2502.14563
+[gap]: https://arxiv.org/abs/2510.25320
+[parrot]: https://www.usenix.org/conference/osdi24/presentation/lin-chaofan
+[ayo]: https://www.researchgate.net/publication/390315200_Towards_End-to-End_Optimization_of_LLM-based_Applications_with_Ayo
+[autellix]: https://arxiv.org/abs/2502.13965
+[paste]: https://arxiv.org/abs/2603.18897
+[bpaste]: https://arxiv.org/abs/2604.16469
+[cpteams]: https://journal.jci.co.id/jitie/article/view/598
